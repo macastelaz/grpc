@@ -134,7 +134,8 @@ grpc_service_account_jwt_access_credentials::
     token_lifetime = grpc_max_auth_token_lifetime();
   }
   jwt_lifetime_ = token_lifetime;
-  if (encoded_locations != nullptr && !encoded_locations[0] == '\0') {
+
+  if (encoded_locations != nullptr && encoded_locations[0] != '\0') {
     regional_access_boundary_cache = {std::string(encoded_locations)};
   }
   gpr_mu_init(&cache_mu_);

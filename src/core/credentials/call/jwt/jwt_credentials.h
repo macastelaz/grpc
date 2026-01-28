@@ -67,7 +67,7 @@ class grpc_service_account_jwt_access_credentials
   };
 
   std::string build_regional_access_boundary_url() override {
-    return absl::StrFormat("https://staging-iamcredentials.sandbox.googleapis.com/v1/projects/-/"
+    return absl::StrFormat("https://iamcredentials.googleapis.com/v1/projects/-/"
                      "serviceAccounts/%s/allowedLocations", key_.client_email);
   }
 
