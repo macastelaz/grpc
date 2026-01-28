@@ -199,7 +199,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, RegionalEndpointIgnored) {
 
 TEST_F(RegionalAccessBoundaryUtilTest, NonGoogleApisEndpointIgnored) {
   metadata_->Set(HttpAuthorityMetadata(),
-                 Slice::FromStaticString("googleapis.com"));
+                 Slice::FromStaticString("example.com"));
 
   auto promise = FetchRegionalAccessBoundary(creds_, std::move(metadata_));
   EXPECT_FALSE(creds_->regional_access_boundary_fetch_in_flight);
@@ -384,7 +384,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, MissingAccessToken) {
   grpc_core::ExecCtx exec_ctx;
   
   auto metadata_no_auth = arena_->MakePooled<ClientMetadata>();
-  metadata_no_auth->Set(HttpAuthorityMetadata(), Slice::FromStaticString("example.com"));
+  metadata_no_auth->Set(HttpAuthorityMetadata(), Slice::FromStaticString("googleapis.com"));
 
   auto promise = FetchRegionalAccessBoundary(creds_, std::move(metadata_no_auth));
 

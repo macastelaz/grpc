@@ -62,6 +62,16 @@ extern "C" {
    grpc_google_default_credentials_create function. */
 #define GRPC_GOOGLE_CREDENTIALS_ENV_VAR "GOOGLE_APPLICATION_CREDENTIALS"
 
+// /** Environment variable that enables the functionality to include the 
+//  * x-allowed-locations in supported CallCredentials. This is a boolean
+//  * which has a default value of false. Users have to explicitly set
+//  * this value to true. */
+// #define GRPC_GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED_ENV_VAR \
+//   "GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED"
+
+// /** The default universe domain of google APIs */
+// #define GRPC_GOOGLE_DEFAULT_UNIVERSE_DOMAIN = "googleapis.com"
+
 /** Results for the SSL roots override callback. */
 typedef enum {
   GRPC_SSL_ROOTS_OVERRIDE_OK,

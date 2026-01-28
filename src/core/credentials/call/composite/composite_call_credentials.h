@@ -55,6 +55,13 @@ class grpc_composite_call_credentials : public grpc_call_credentials {
   GetRequestMetadata(grpc_core::ClientMetadataHandle initial_metadata,
                      const GetRequestMetadataArgs* args) override;
 
+  // void InvalidateRegionalAccessBoundaryCache() override {
+  //   grpc_call_credentials::InvalidateRegionalAccessBoundaryCache();
+  //   for (auto& cred : inner_) {
+  //     cred->InvalidateRegionalAccessBoundaryCache();
+  //   }
+  // }
+
   grpc_security_level min_security_level() const override {
     return min_security_level_;
   }
