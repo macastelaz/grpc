@@ -24,10 +24,6 @@
 #include <string>
 #include <utility>
 
-#include "absl/status/status.h"
-#include "absl/status/statusor.h"
-#include "absl/strings/string_view.h"
-#include "gtest/gtest.h"
 #include "src/core/call/metadata_batch.h"
 #include "src/core/credentials/call/call_credentials.h"
 #include "src/core/lib/promise/arena_promise.h"
@@ -38,6 +34,10 @@
 #include "src/core/util/ref_counted_ptr.h"
 #include "src/core/util/sync.h"
 #include "test/core/test_util/test_config.h"
+#include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 
 namespace grpc_core {
 namespace {
@@ -78,8 +78,8 @@ struct MockHttpResponse {
 MockHttpResponse* g_mock_response = nullptr;
 int g_mock_get_count = 0;
 
-int MockGet(const grpc_http_request* /*request*/, const grpc_core::URI& /*uri*/,
-            grpc_core::Timestamp /*deadline*/, grpc_closure* on_complete,
+int MockGet(const grpc_http_request* /*request*/, const URI& /*uri*/,
+            Timestamp /*deadline*/, grpc_closure* on_complete,
             grpc_http_response* response) {
   g_mock_get_count++;
   if (g_mock_response) {
@@ -94,7 +94,7 @@ int MockGet(const grpc_http_request* /*request*/, const grpc_core::URI& /*uri*/,
     response->status = 404;
   }
   // Schedule the callback on the ExecCtx
-  grpc_core::ExecCtx::Run(DEBUG_LOCATION, on_complete, absl::OkStatus());
+  ExecCtx::Run(DEBUG_LOCATION, on_complete, absl::OkStatus());
   return 1;
 }
 
@@ -125,7 +125,7 @@ class RegionalAccessBoundaryUtilTest : public ::testing::Test {
     grpc_shutdown();
   }
 
-  void WaitForFetchToComplete() { grpc_core::ExecCtx::Get()->Flush(); }
+  void WaitForFetchToComplete() { ExecCtx::Get()->Flush(); }
 
   RefCountedPtr<FakeCallCredentials> creds_;
   RefCountedPtr<Arena> arena_;
@@ -133,7 +133,7 @@ class RegionalAccessBoundaryUtilTest : public ::testing::Test {
 };
 
 TEST_F(RegionalAccessBoundaryUtilTest, DisabledViaEnvVar) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "false");
 
   auto promise = FetchRegionalAccessBoundary(creds_, std::move(metadata_));
@@ -146,7 +146,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, DisabledViaEnvVar) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, CacheMissTriggersFetch) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   auto promise = FetchRegionalAccessBoundary(creds_, std::move(metadata_));
 
   Poll<absl::StatusOr<ClientMetadataHandle>> poll = promise();
@@ -157,7 +157,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, CacheMissTriggersFetch) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, CacheHitDoesNotTriggerFetch) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   {
     MutexLockForGprMu lock(&creds_->regional_access_boundary_cache_mu);
     creds_->regional_access_boundary_cache = RegionalAccessBoundary{
@@ -186,7 +186,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, CacheHitDoesNotTriggerFetch) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, RegionalEndpointIgnored) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   metadata_->Set(HttpAuthorityMetadata(),
                  Slice::FromStaticString("rep.googleapis.com"));
 
@@ -198,7 +198,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, RegionalEndpointIgnored) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, ExpiredCacheTriggersFetch) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   {
     MutexLockForGprMu lock(&creds_->regional_access_boundary_cache_mu);
     creds_->regional_access_boundary_cache = RegionalAccessBoundary{
@@ -216,7 +216,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, ExpiredCacheTriggersFetch) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, CooldownPreventsFetch) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   {
     MutexLockForGprMu lock(&creds_->regional_access_boundary_cache_mu);
     creds_->regional_access_boundary_cooldown_deadline = gpr_time_add(
@@ -231,7 +231,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, CooldownPreventsFetch) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, FetchSuccess) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   MockHttpResponse response = {200,
                                "{\"encodedLocations\": \"abcd\", "
                                "\"locations\": [\"us-west1\"]}"};
@@ -256,7 +256,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, FetchSuccess) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, FetchFailure401SetsCooldown) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
 
   MockHttpResponse response = {401, "Unauthorized"};
 
@@ -282,7 +282,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, FetchFailure401SetsCooldown) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, FetchFailure404Retries) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
 
   MockHttpResponse response = {404, "Not Found"};
 
@@ -296,7 +296,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, FetchFailure404Retries) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, CooldownRespectedAfterFailure) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   MockHttpResponse response = {401, "Unauthorized"};
   g_mock_response = &response;
 
@@ -330,7 +330,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, CooldownRespectedAfterFailure) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, InFlightFetchPreventsNewFetch) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   MockHttpResponse response = {200, "{}"};
   g_mock_response = &response;
 
@@ -348,14 +348,14 @@ TEST_F(RegionalAccessBoundaryUtilTest, InFlightFetchPreventsNewFetch) {
                     [](absl::string_view, const Slice&) { abort(); });
 
   auto promise2 = FetchRegionalAccessBoundary(creds_, std::move(metadata2));
-  
+
   // Verify no new fetch started
   EXPECT_TRUE(creds_->regional_access_boundary_fetch_in_flight);
   EXPECT_EQ(g_mock_get_count, 1);
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, InvalidUrlIgnored) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   creds_->custom_url_ = ":invalid_scheme";
 
   auto promise = FetchRegionalAccessBoundary(creds_, std::move(metadata_));
@@ -370,12 +370,14 @@ TEST_F(RegionalAccessBoundaryUtilTest, InvalidUrlIgnored) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, MissingAccessToken) {
-  grpc_core::ExecCtx exec_ctx;
-  
-  auto metadata_no_auth = arena_->MakePooled<ClientMetadata>();
-  metadata_no_auth->Set(HttpAuthorityMetadata(), Slice::FromStaticString("example.com"));
+  ExecCtx exec_ctx;
 
-  auto promise = FetchRegionalAccessBoundary(creds_, std::move(metadata_no_auth));
+  auto metadata_no_auth = arena_->MakePooled<ClientMetadata>();
+  metadata_no_auth->Set(HttpAuthorityMetadata(),
+                        Slice::FromStaticString("example.com"));
+
+  auto promise =
+      FetchRegionalAccessBoundary(creds_, std::move(metadata_no_auth));
 
   EXPECT_FALSE(creds_->regional_access_boundary_fetch_in_flight);
   EXPECT_EQ(g_mock_get_count, 0);
@@ -387,7 +389,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, MissingAccessToken) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, FetchWithOnlyLocationsDoesNotCache) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   MockHttpResponse response = {200, "{\"locations\": [\"us-west1\"]}"};
   g_mock_response = &response;
 
@@ -402,7 +404,7 @@ TEST_F(RegionalAccessBoundaryUtilTest, FetchWithOnlyLocationsDoesNotCache) {
 }
 
 TEST_F(RegionalAccessBoundaryUtilTest, MalformedResponse) {
-  grpc_core::ExecCtx exec_ctx;
+  ExecCtx exec_ctx;
   MockHttpResponse response = {200, "Not JSON"};
   g_mock_response = &response;
 
