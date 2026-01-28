@@ -18,39 +18,37 @@
 #include "src/core/credentials/call/jwt/jwt_credentials.h"
 
 #include <grpc/credentials.h>
+#include <grpc/slice.h>
 #include <grpc/support/alloc.h>
 #include <grpc/support/json.h>
 #include <grpc/support/port_platform.h>
 #include <grpc/support/string_util.h>
 #include <grpc/support/sync.h>
-#include <grpc/slice.h>
 #include <inttypes.h>
 #include <stdlib.h>
-#include "src/core/util/http_client/httpcli.h"
-#include "src/core/util/http_client/httpcli_ssl_credentials.h"
-#include "src/core/lib/iomgr/polling_entity.h"
-#include "src/core/lib/iomgr/pollset_set.h"
+
 #include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
 
-#include "src/core/lib/transport/error_utils.h"
-#include "src/core/credentials/call/call_credentials.h"
-#include "absl/log/log.h"
-#include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "src/core/call/metadata_batch.h"
+#include "src/core/credentials/call/call_credentials.h"
 #include "src/core/credentials/call/call_creds_util.h"
 #include "src/core/credentials/call/regional_access_boundary_util.h"
+#include "src/core/credentials/transport/transport_credentials.h"
 #include "src/core/lib/debug/trace.h"
 #include "src/core/lib/iomgr/exec_ctx.h"
-#include "src/core/lib/promise/promise.h"
+#include "src/core/lib/iomgr/polling_entity.h"
+#include "src/core/lib/iomgr/pollset_set.h"
 #include "src/core/lib/promise/context.h"
+#include "src/core/lib/promise/promise.h"
+#include "src/core/lib/transport/error_utils.h"
 #include "src/core/util/grpc_check.h"
+#include "src/core/util/http_client/httpcli.h"
+#include "src/core/util/http_client/httpcli_ssl_credentials.h"
 #include "src/core/util/json/json.h"
 #include "src/core/util/json/json_reader.h"
-#include "src/core/credentials/transport/transport_credentials.h"
 #include "src/core/util/json/json_writer.h"
 #include "src/core/util/ref_counted_ptr.h"
 #include "src/core/util/uri.h"
@@ -87,8 +85,8 @@ grpc_service_account_jwt_access_credentials::GetRequestMetadata(
     gpr_mu_lock(&cache_mu_);
     if (cached_.has_value() && cached_->service_url == *uri &&
         (gpr_time_cmp(
-              gpr_time_sub(cached_->jwt_expiration, gpr_now(GPR_CLOCK_REALTIME)),
-              refresh_threshold) > 0)) {
+             gpr_time_sub(cached_->jwt_expiration, gpr_now(GPR_CLOCK_REALTIME)),
+             refresh_threshold) > 0)) {
       jwt_value = cached_->jwt_value.Ref();
     }
     gpr_mu_unlock(&cache_mu_);
@@ -105,28 +103,31 @@ grpc_service_account_jwt_access_credentials::GetRequestMetadata(
       gpr_free(jwt);
       jwt_value = grpc_core::Slice::FromCopiedString(md_value);
       cached_ = {jwt_value->Ref(), std::move(*uri),
-                  gpr_time_add(gpr_now(GPR_CLOCK_REALTIME), jwt_lifetime_)};
+                 gpr_time_add(gpr_now(GPR_CLOCK_REALTIME), jwt_lifetime_)};
     }
     gpr_mu_unlock(&cache_mu_);
   }
 
   if (!jwt_value.has_value()) {
-    return grpc_core::Immediate(absl::UnauthenticatedError("Could not generate JWT."));
+    return grpc_core::Immediate(
+        absl::UnauthenticatedError("Could not generate JWT."));
   }
 
   initial_metadata->Append(
       GRPC_AUTHORIZATION_METADATA_KEY, std::move(*jwt_value),
       [](absl::string_view, const grpc_core::Slice&) { abort(); });
 
-  return grpc_core::FetchRegionalAccessBoundary(this->Ref(), std::move(initial_metadata));
+  return grpc_core::FetchRegionalAccessBoundary(this->Ref(),
+                                                std::move(initial_metadata));
 }
 
 grpc_service_account_jwt_access_credentials::
     grpc_service_account_jwt_access_credentials(grpc_auth_json_key key,
-                                                gpr_timespec token_lifetime, const char* encoded_locations)
+                                                gpr_timespec token_lifetime,
+                                                const char* encoded_locations)
     : key_(key),
-      pollent_(
-          grpc_polling_entity_create_from_pollset_set(grpc_pollset_set_create())) {
+      pollent_(grpc_polling_entity_create_from_pollset_set(
+          grpc_pollset_set_create())) {
   gpr_timespec max_token_lifetime = grpc_max_auth_token_lifetime();
   if (gpr_time_cmp(token_lifetime, max_token_lifetime) > 0) {
     VLOG(2) << "Cropping token lifetime to maximum allowed value ("
@@ -147,7 +148,8 @@ grpc_core::UniqueTypeName grpc_service_account_jwt_access_credentials::Type() {
 
 grpc_core::RefCountedPtr<grpc_call_credentials>
 grpc_service_account_jwt_access_credentials_create_from_auth_json_key(
-    grpc_auth_json_key key, gpr_timespec token_lifetime, const char* encoded_locations) {
+    grpc_auth_json_key key, gpr_timespec token_lifetime,
+    const char* encoded_locations) {
   if (!grpc_auth_json_key_is_valid(&key)) {
     LOG(ERROR) << "Invalid input for jwt credentials creation";
     return nullptr;
@@ -174,7 +176,8 @@ grpc_call_credentials* grpc_service_account_jwt_access_credentials_create(
       json_key, token_lifetime, nullptr, reserved);
 }
 
-grpc_call_credentials* grpc_service_account_jwt_access_credentials_create_with_encoded_locations(
+grpc_call_credentials*
+grpc_service_account_jwt_access_credentials_create_with_encoded_locations(
     const char* json_key, gpr_timespec token_lifetime,
     const char* encoded_locations, void* reserved) {
   if (GRPC_TRACE_FLAG_ENABLED(api)) {
