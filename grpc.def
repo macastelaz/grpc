@@ -20,6 +20,7 @@ EXPORTS
     grpc_compression_options_disable_algorithm
     grpc_compression_options_is_algorithm_enabled
     grpc_service_account_jwt_access_credentials_create
+    grpc_service_account_jwt_access_credentials_create_with_encoded_locations
     grpc_external_account_credentials_create
     grpc_google_refresh_token_credentials_create
     grpc_access_token_credentials_create
