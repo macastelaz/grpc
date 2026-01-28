@@ -65,12 +65,12 @@
 #include "src/core/util/http_client/httpcli_ssl_credentials.h"
 #include "src/core/util/json/json_reader.h"
 #include "src/core/util/string.h"
+#include "src/core/util/sync.h"
 #include "src/core/util/time.h"
 #include "src/core/util/tmpfile.h"
 #include "src/core/util/unique_type_name.h"
 #include "src/core/util/uri.h"
 #include "src/core/util/wait_for_single_owner.h"
-#include "src/core/util/sync.h"
 #include "test/core/event_engine/event_engine_test_utils.h"
 #include "test/core/event_engine/fuzzing_event_engine/fuzzing_event_engine.h"
 #include "test/core/test_util/test_call_creds.h"
@@ -1672,8 +1672,6 @@ int regional_access_boundary_httpcli_get_success(
 
 TEST_F(CredentialsTest, TestJwtCredsFetchRegionalAccessBoundary) {
   grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
-  const char expected_creds_debug_string_prefix[] =
-      "JWTAccessCredentials{ExpirationTime:";
 
   char* json_key_string = test_json_key_str();
   ExecCtx exec_ctx;
@@ -1697,7 +1695,7 @@ TEST_F(CredentialsTest, TestJwtCredsFetchRegionalAccessBoundary) {
   auto state = RequestMetadataState::NewInstance(absl::OkStatus(), emd1);
   state->RunRequestMetadataTest(creds, kTestUrlScheme, kTestAuthority,
                                 kTestPath);
-  ExecCtx::Get()->Flush(); // Process the fetch
+  ExecCtx::Get()->Flush();  // Process the fetch
 
   // Second request: uses cache
   state = RequestMetadataState::NewInstance(absl::OkStatus(), emd2);
@@ -1839,6 +1837,138 @@ TEST_F(CredentialsTest,
   creds->Unref();
   SetEnv(GRPC_GOOGLE_CREDENTIALS_ENV_VAR, "");  // Reset.
   grpc_override_well_known_credentials_path_getter(nullptr);
+}
+
+TEST_F(CredentialsTest,
+
+       TestExternalAccountCredentialsFailureInvalidCredentialSourceType) {
+  std::string json_options =
+
+      "{\"type\":\"external_account\",\"audience\":\"audience\",\"subject_"
+
+      "token_type\":\"subject_token_type\",\"token_url\":\"https://"
+
+      "foo.com:5555/token\",\"token_info_url\":\"https://foo.com:5555/"
+
+      "token_info\",\"credential_source\":\"I am a string, not an object\","
+
+      "\"quota_project_id\":\"quota_"
+
+      "project_id\",\"client_id\":\"client_id\",\"client_secret\":\"client_"
+
+      "secret\"}";
+
+  grpc_call_credentials* creds =
+
+      grpc_external_account_credentials_create(json_options.c_str(), "scope");
+
+  EXPECT_EQ(creds, nullptr);
+}
+
+TEST_F(CredentialsTest,
+
+       TestExternalAccountCredentialsWithRegionalAccessBoundary) {
+  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+
+  std::string json_options =
+
+      "{\"type\":\"external_account\",\"audience\":\"audience\",\"subject_"
+
+      "token_type\":\"subject_token_type\",\"token_url\":\"https://"
+
+      "foo.com:5555/token\",\"token_info_url\":\"https://foo.com:5555/"
+
+      "token_info\",\"credential_source\":{\"url\":\"https://foo.com:5555/"
+
+      "generate_subject_token_format_json\",\"headers\":{\"Metadata-Flavor\":"
+
+      "\"Google\"},\"format\":{\"type\":\"json\",\"subject_token_field_name\":"
+
+      "\"access_token\"}},\"quota_project_id\":\"quota_"
+
+      "project_id\",\"client_id\":\"client_id\",\"client_secret\":\"client_"
+
+      "secret\"}";
+
+  ExecCtx exec_ctx;
+
+    grpc_call_credentials* creds =
+
+        grpc_external_account_credentials_create_with_regional_access_boundary(
+
+            json_options.c_str(), "scope1,scope2", "{\"encodedLocations\": \"foo\"}");
+
+  GRPC_CHECK_NE(creds, nullptr);
+
+  // We need to set up expectation that NO http request for RAB will be made
+
+  // because we provided encoded locations.
+
+  // The external account creds will still try to fetch the token though.
+
+  // So we mock the token fetch logic.
+
+  HttpRequest::SetOverride(
+
+      [](const grpc_http_request* request, const URI& uri, Timestamp,
+
+         grpc_closure* on_done, grpc_http_response* response) {
+        // GET Override: Retrieve subject token
+
+        if (uri.path() == "/generate_subject_token_format_json") {
+          *response =
+              http_response(200, "{\"access_token\": \"subject_token\"}");
+
+          ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
+
+          return 1;
+        }
+
+        LOG(ERROR) << "Unexpected GET request to: " << uri.ToString();
+
+        return 0;
+      },
+
+      [](const grpc_http_request* request, const URI& uri,
+         absl::string_view body, Timestamp,
+
+         grpc_closure* on_done, grpc_http_response* response) {
+        // POST Override: Exchange token
+
+        if (uri.path() == "/token") {
+          *response = http_response(200, valid_oauth2_json_response);
+
+          ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
+
+          return 1;
+        }
+
+        LOG(ERROR) << "Unexpected POST request to: " << uri.ToString();
+
+        return 0;
+      },
+
+      httpcli_put_should_not_be_called);
+
+  auto state = RequestMetadataState::NewInstance(
+
+      absl::OkStatus(),
+
+      "authorization: Bearer ya29.AHES6ZRN3-HlhAPya30GnW_bHSb_, "
+
+      "x-allowed-locations: foo");
+
+  state->RunRequestMetadataTest(creds, kTestUrlScheme, kTestAuthority,
+
+                                kTestPath);
+
+  ExecCtx::Get()->Flush();
+
+  creds->Unref();
+
+  HttpRequest::SetOverride(nullptr, nullptr, nullptr);
+
+  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 int default_creds_metadata_server_detection_httpcli_get_success_override(
@@ -4878,11 +5008,13 @@ TEST_F(CredentialsTest, RegionalAccessBoundaryIsInvalidWhenExpiredNow) {
 TEST_F(CredentialsTest, BuildRegionalAccessBoundaryUrlDefault) {
   RefCountedPtr<grpc_call_credentials> creds =
       MakeRefCounted<fake_call_creds>();
-  EXPECT_EQ(creds->build_regional_access_boundary_url(),
-            "grpc_call_credentials did not provide regional access boundary url");
+  EXPECT_EQ(
+      creds->build_regional_access_boundary_url(),
+      "grpc_call_credentials did not provide regional access boundary url");
 }
 
-TEST_F(CredentialsTest, DoesNotHaveRegionalAccessBoundaryFetchInFlightByDefault) {
+TEST_F(CredentialsTest,
+       DoesNotHaveRegionalAccessBoundaryFetchInFlightByDefault) {
   RefCountedPtr<grpc_call_credentials> creds =
       MakeRefCounted<fake_call_creds>();
   EXPECT_FALSE(creds->regional_access_boundary_fetch_in_flight);
@@ -4898,7 +5030,8 @@ TEST_F(CredentialsTest, HasPastCooldownDeadlineByDefault) {
   RefCountedPtr<grpc_call_credentials> creds =
       MakeRefCounted<fake_call_creds>();
 
-  GRPC_CHECK_EQ(gpr_time_cmp(gpr_inf_past(GPR_CLOCK_REALTIME), creds->regional_access_boundary_cooldown_deadline),
+  GRPC_CHECK_EQ(gpr_time_cmp(gpr_inf_past(GPR_CLOCK_REALTIME),
+                             creds->regional_access_boundary_cooldown_deadline),
                 0);
 }
 
@@ -4908,12 +5041,15 @@ TEST_F(CredentialsTest, InvalidateRegionalAccessBoundaryCache) {
   {
     MutexLockForGprMu lock(&creds->regional_access_boundary_cache_mu);
     creds->regional_access_boundary_cache = RegionalAccessBoundary{
-        "us-west1", {"us-west1"}, gpr_time_add(gpr_now(GPR_CLOCK_REALTIME), gpr_time_from_seconds(100, GPR_TIMESPAN))};
+        "us-west1",
+        {"us-west1"},
+        gpr_time_add(gpr_now(GPR_CLOCK_REALTIME),
+                     gpr_time_from_seconds(100, GPR_TIMESPAN))};
   }
   EXPECT_TRUE(creds->regional_access_boundary_cache.has_value());
-  
+
   creds->InvalidateRegionalAccessBoundaryCache();
-  
+
   EXPECT_FALSE(creds->regional_access_boundary_cache.has_value());
 }
 
