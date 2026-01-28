@@ -47,7 +47,8 @@ class grpc_service_account_jwt_access_credentials
     : public grpc_call_credentials {
  public:
   grpc_service_account_jwt_access_credentials(grpc_auth_json_key key,
-                                              gpr_timespec token_lifetime, const char* encoded_locations);
+                                              gpr_timespec token_lifetime,
+                                              const char* encoded_locations);
   ~grpc_service_account_jwt_access_credentials() override;
 
   void Orphaned() override {}
@@ -67,8 +68,10 @@ class grpc_service_account_jwt_access_credentials
   };
 
   std::string build_regional_access_boundary_url() override {
-    return absl::StrFormat("https://iamcredentials.googleapis.com/v1/projects/-/"
-                     "serviceAccounts/%s/allowedLocations", key_.client_email);
+    return absl::StrFormat(
+        "https://iamcredentials.googleapis.com/v1/projects/-/"
+        "serviceAccounts/%s/allowedLocations",
+        key_.client_email);
   }
 
   static grpc_core::UniqueTypeName Type();
@@ -101,7 +104,8 @@ class grpc_service_account_jwt_access_credentials
 // Takes ownership of the key.
 grpc_core::RefCountedPtr<grpc_call_credentials>
 grpc_service_account_jwt_access_credentials_create_from_auth_json_key(
-    grpc_auth_json_key key, gpr_timespec token_lifetime, const char* encoded_locations = nullptr);
+    grpc_auth_json_key key, gpr_timespec token_lifetime,
+    const char* encoded_locations = nullptr);
 
 namespace grpc_core {
 
