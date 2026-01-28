@@ -99,10 +99,13 @@ std::shared_ptr<ChannelCredentials> GoogleDefaultCredentials(
 }
 
 std::shared_ptr<CallCredentials> ExternalAccountCredentials(
-    const grpc::string& json_string, const std::vector<grpc::string>& scopes) {
+    const grpc::string& json_string, const std::vector<grpc::string>& scopes,
+    const grpc::string& encoded_locations) {
   grpc::internal::GrpcLibrary init;  // To call grpc_init().
-  return WrapCallCredentials(grpc_external_account_credentials_create(
-      json_string.c_str(), absl::StrJoin(scopes, ",").c_str()));
+  return WrapCallCredentials(
+      grpc_external_account_credentials_create_with_encoded_locations(
+          json_string.c_str(), absl::StrJoin(scopes, ",").c_str(),
+          encoded_locations.empty() ? nullptr : encoded_locations.c_str()));
 }
 
 // Builds SSL Credentials given SSL specific options
@@ -324,10 +327,12 @@ std::shared_ptr<ChannelCredentials> CompositeChannelCredentials(
   // here. This is OK because the underlying C objects (i.e., channel_creds and
   // call_creds) into grpc_composite_credentials_create will see their refcounts
   // incremented.
-  return channel_creds->c_creds_ == nullptr
-             ? nullptr
-             : WrapChannelCredentials(grpc_composite_channel_credentials_create(
-                   channel_creds->c_creds_, call_creds->c_creds_, nullptr));
+  if (channel_creds == nullptr || call_creds == nullptr ||
+      channel_creds->c_creds_ == nullptr || call_creds->c_creds_ == nullptr) {
+    return nullptr;
+  }
+  return WrapChannelCredentials(grpc_composite_channel_credentials_create(
+      channel_creds->c_creds_, call_creds->c_creds_, nullptr));
 }
 
 class CompositeCallCredentialsImpl : public CallCredentials {
