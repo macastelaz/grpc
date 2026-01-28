@@ -65,12 +65,12 @@
 #include "src/core/util/http_client/httpcli_ssl_credentials.h"
 #include "src/core/util/json/json_reader.h"
 #include "src/core/util/string.h"
+#include "src/core/util/sync.h"
 #include "src/core/util/time.h"
 #include "src/core/util/tmpfile.h"
 #include "src/core/util/unique_type_name.h"
 #include "src/core/util/uri.h"
 #include "src/core/util/wait_for_single_owner.h"
-#include "src/core/util/sync.h"
 #include "test/core/event_engine/event_engine_test_utils.h"
 #include "test/core/event_engine/fuzzing_event_engine/fuzzing_event_engine.h"
 #include "test/core/test_util/test_call_creds.h"
@@ -4742,11 +4742,13 @@ TEST_F(CredentialsTest, RegionalAccessBoundaryIsInvalidWhenExpiredNow) {
 TEST_F(CredentialsTest, BuildRegionalAccessBoundaryUrlDefault) {
   RefCountedPtr<grpc_call_credentials> creds =
       MakeRefCounted<fake_call_creds>();
-  EXPECT_EQ(creds->build_regional_access_boundary_url(),
-            "grpc_call_credentials did not provide regional access boundary url");
+  EXPECT_EQ(
+      creds->build_regional_access_boundary_url(),
+      "grpc_call_credentials did not provide regional access boundary url");
 }
 
-TEST_F(CredentialsTest, DoesNotHaveRegionalAccessBoundaryFetchInFlightByDefault) {
+TEST_F(CredentialsTest,
+       DoesNotHaveRegionalAccessBoundaryFetchInFlightByDefault) {
   RefCountedPtr<grpc_call_credentials> creds =
       MakeRefCounted<fake_call_creds>();
   EXPECT_FALSE(creds->regional_access_boundary_fetch_in_flight);
@@ -4762,7 +4764,8 @@ TEST_F(CredentialsTest, HasPastCooldownDeadlineByDefault) {
   RefCountedPtr<grpc_call_credentials> creds =
       MakeRefCounted<fake_call_creds>();
 
-  GRPC_CHECK_EQ(gpr_time_cmp(gpr_inf_past(GPR_CLOCK_REALTIME), creds->regional_access_boundary_cooldown_deadline),
+  GRPC_CHECK_EQ(gpr_time_cmp(gpr_inf_past(GPR_CLOCK_REALTIME),
+                             creds->regional_access_boundary_cooldown_deadline),
                 0);
 }
 
@@ -4772,12 +4775,15 @@ TEST_F(CredentialsTest, InvalidateRegionalAccessBoundaryCache) {
   {
     MutexLockForGprMu lock(&creds->regional_access_boundary_cache_mu);
     creds->regional_access_boundary_cache = RegionalAccessBoundary{
-        "us-west1", {"us-west1"}, gpr_time_add(gpr_now(GPR_CLOCK_REALTIME), gpr_time_from_seconds(100, GPR_TIMESPAN))};
+        "us-west1",
+        {"us-west1"},
+        gpr_time_add(gpr_now(GPR_CLOCK_REALTIME),
+                     gpr_time_from_seconds(100, GPR_TIMESPAN))};
   }
   EXPECT_TRUE(creds->regional_access_boundary_cache.has_value());
-  
+
   creds->InvalidateRegionalAccessBoundaryCache();
-  
+
   EXPECT_FALSE(creds->regional_access_boundary_cache.has_value());
 }
 

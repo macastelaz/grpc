@@ -22127,6 +22127,18 @@ targets:
   deps:
   - gtest
   - grpc_test_util
+- name: regional_access_boundary_util_test
+  gtest: true
+  build: test
+  language: c++
+  headers:
+  - src/core/credentials/call/regional_access_boundary_util.h
+  src:
+  - src/core/credentials/call/regional_access_boundary_util.cc
+  - test/core/credentials/call/regional_access_boundary_util_test.cc
+  deps:
+  - gtest
+  - grpc_test_util
 - name: remove_stream_from_stalled_lists_test
   gtest: true
   build: test
