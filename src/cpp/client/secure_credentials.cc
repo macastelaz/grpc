@@ -39,6 +39,11 @@
 #include <optional>
 #include <utility>
 
+#include "src/core/credentials/call/call_credentials.h"
+#include "absl/log/log.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_join.h"
 #include "src/core/credentials/call/json_util.h"
 #include "src/core/lib/event_engine/default_event_engine.h"
 #include "src/core/lib/iomgr/exec_ctx.h"
@@ -273,7 +278,7 @@ std::shared_ptr<CallCredentials> GoogleComputeEngineCredentials() {
 
 // Builds JWT credentials.
 std::shared_ptr<CallCredentials> ServiceAccountJWTAccessCredentials(
-    const std::string& json_key, long token_lifetime_seconds) {
+    const std::string& json_key, long token_lifetime_seconds, const std::string& encoded_locations) {
   grpc::internal::GrpcLibrary init;  // To call grpc_init().
   if (token_lifetime_seconds <= 0) {
     LOG(ERROR) << "Trying to create JWTCredentials with non-positive lifetime";
@@ -281,8 +286,8 @@ std::shared_ptr<CallCredentials> ServiceAccountJWTAccessCredentials(
   }
   gpr_timespec lifetime =
       gpr_time_from_seconds(token_lifetime_seconds, GPR_TIMESPAN);
-  return WrapCallCredentials(grpc_service_account_jwt_access_credentials_create(
-      json_key.c_str(), lifetime, nullptr));
+  return WrapCallCredentials(grpc_service_account_jwt_access_credentials_create_with_encoded_locations(
+      json_key.c_str(), lifetime, encoded_locations.c_str(), nullptr));
 }
 
 // Builds refresh token credentials.
