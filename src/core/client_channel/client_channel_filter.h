@@ -95,6 +95,10 @@ class ClientChannelFilter final {
     return "grpc.internal.client_channel_filter";
   }
 
+//   const ChannelArgs& channel_args() const { return channel_args_; }
+
+//   absl::string_view target_uri() const { return target_uri_; }
+
   grpc_connectivity_state CheckConnectivityState(bool try_to_connect);
 
   // Starts a one-time connectivity state watch.  When the channel's state

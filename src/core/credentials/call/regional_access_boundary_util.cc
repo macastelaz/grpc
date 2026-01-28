@@ -117,7 +117,6 @@ void RetryFetchRegionalAccessBoundary(void* arg, grpc_error_handle error) {
     }
     gpr_mu_unlock(&req->creds->regional_access_boundary_cache_mu);
   }
->>>>>>> a08541df6e (Implement Regional Access Boundary lookup, including error handling with retry logic using exponential backoff and a cooldown period, also using an exponential backoff. Details in go/regional-access-boundaries-auth-sdk-c++)
 }
 
 void OnRegionalAccessBoundaryResponse(void* arg, grpc_error_handle error) {
