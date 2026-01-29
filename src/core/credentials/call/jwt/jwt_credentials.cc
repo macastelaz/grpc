@@ -18,39 +18,37 @@
 #include "src/core/credentials/call/jwt/jwt_credentials.h"
 
 #include <grpc/credentials.h>
+#include <grpc/slice.h>
 #include <grpc/support/alloc.h>
 #include <grpc/support/json.h>
 #include <grpc/support/port_platform.h>
 #include <grpc/support/string_util.h>
 #include <grpc/support/sync.h>
-#include <grpc/slice.h>
 #include <inttypes.h>
 #include <stdlib.h>
-#include "src/core/util/http_client/httpcli.h"
-#include "src/core/util/http_client/httpcli_ssl_credentials.h"
-#include "src/core/lib/iomgr/polling_entity.h"
-#include "src/core/lib/iomgr/pollset_set.h"
+
 #include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
 
-#include "src/core/lib/transport/error_utils.h"
-#include "src/core/credentials/call/call_credentials.h"
-#include "absl/log/log.h"
-#include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "src/core/call/metadata_batch.h"
+#include "src/core/credentials/call/call_credentials.h"
 #include "src/core/credentials/call/call_creds_util.h"
 #include "src/core/credentials/call/regional_access_boundary_util.h"
+#include "src/core/credentials/transport/transport_credentials.h"
 #include "src/core/lib/debug/trace.h"
 #include "src/core/lib/iomgr/exec_ctx.h"
-#include "src/core/lib/promise/promise.h"
+#include "src/core/lib/iomgr/polling_entity.h"
+#include "src/core/lib/iomgr/pollset_set.h"
 #include "src/core/lib/promise/context.h"
+#include "src/core/lib/promise/promise.h"
+#include "src/core/lib/transport/error_utils.h"
 #include "src/core/util/grpc_check.h"
+#include "src/core/util/http_client/httpcli.h"
+#include "src/core/util/http_client/httpcli_ssl_credentials.h"
 #include "src/core/util/json/json.h"
 #include "src/core/util/json/json_reader.h"
-#include "src/core/credentials/transport/transport_credentials.h"
 #include "src/core/util/json/json_writer.h"
 #include "src/core/util/ref_counted_ptr.h"
 #include "src/core/util/uri.h"
@@ -87,8 +85,8 @@ grpc_service_account_jwt_access_credentials::GetRequestMetadata(
     gpr_mu_lock(&cache_mu_);
     if (cached_.has_value() && cached_->service_url == *uri &&
         (gpr_time_cmp(
-              gpr_time_sub(cached_->jwt_expiration, gpr_now(GPR_CLOCK_REALTIME)),
-              refresh_threshold) > 0)) {
+             gpr_time_sub(cached_->jwt_expiration, gpr_now(GPR_CLOCK_REALTIME)),
+             refresh_threshold) > 0)) {
       jwt_value = cached_->jwt_value.Ref();
     }
     gpr_mu_unlock(&cache_mu_);
@@ -105,20 +103,22 @@ grpc_service_account_jwt_access_credentials::GetRequestMetadata(
       gpr_free(jwt);
       jwt_value = grpc_core::Slice::FromCopiedString(md_value);
       cached_ = {jwt_value->Ref(), std::move(*uri),
-                  gpr_time_add(gpr_now(GPR_CLOCK_REALTIME), jwt_lifetime_)};
+                 gpr_time_add(gpr_now(GPR_CLOCK_REALTIME), jwt_lifetime_)};
     }
     gpr_mu_unlock(&cache_mu_);
   }
 
   if (!jwt_value.has_value()) {
-    return grpc_core::Immediate(absl::UnauthenticatedError("Could not generate JWT."));
+    return grpc_core::Immediate(
+        absl::UnauthenticatedError("Could not generate JWT."));
   }
 
   initial_metadata->Append(
       GRPC_AUTHORIZATION_METADATA_KEY, std::move(*jwt_value),
       [](absl::string_view, const grpc_core::Slice&) { abort(); });
 
-  return grpc_core::FetchRegionalAccessBoundary(this->Ref(), std::move(initial_metadata));
+  return grpc_core::FetchRegionalAccessBoundary(this->Ref(),
+                                                std::move(initial_metadata));
 }
 
 grpc_service_account_jwt_access_credentials::
@@ -212,17 +212,16 @@ grpc_service_account_jwt_access_credentials_create_with_regional_access_boundary
     const char* regional_access_boundary, void* reserved) {
   if (GRPC_TRACE_FLAG_ENABLED(api)) {
     char* clean_json = redact_private_key(json_key);
-    VLOG(2)
-        << "grpc_service_account_jwt_access_credentials_create_with_"
-           "regional_access_boundary("
-        << "json_key=" << clean_json
-        << ", token_lifetime=gpr_timespec { tv_sec: " << token_lifetime.tv_sec
-        << ", tv_nsec: " << token_lifetime.tv_nsec
-        << ", clock_type: " << token_lifetime.clock_type
-        << " }, regional_access_boundary="
-        << (regional_access_boundary == nullptr ? "NULL"
-                                                : regional_access_boundary)
-        << ", reserved=" << reserved << ")";
+    VLOG(2) << "grpc_service_account_jwt_access_credentials_create_with_"
+               "regional_access_boundary("
+            << "json_key=" << clean_json
+            << ", token_lifetime=gpr_timespec { tv_sec: "
+            << token_lifetime.tv_sec << ", tv_nsec: " << token_lifetime.tv_nsec
+            << ", clock_type: " << token_lifetime.clock_type
+            << " }, regional_access_boundary="
+            << (regional_access_boundary == nullptr ? "NULL"
+                                                    : regional_access_boundary)
+            << ", reserved=" << reserved << ")";
     gpr_free(clean_json);
   }
   GRPC_CHECK_EQ(reserved, nullptr);
