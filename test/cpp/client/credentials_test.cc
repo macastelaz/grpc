@@ -212,9 +212,8 @@ TEST(CredentialsTest, ExternalAccountCredentialsWithRegionalAccessBoundary) {
       "\"access_token\"}},\"quota_project_id\":\"quota_"
       "project_id\",\"client_id\":\"client_id\",\"client_secret\":\"client_"
       "secret\"}");
-  auto creds = grpc::ExternalAccountCredentials(url_options_string,
-                                                {"scope1", "scope2"},
-                                                "encoded_locations_string");
+  auto creds = grpc::ExternalAccountCredentials(
+      url_options_string, {"scope1", "scope2"}, "encoded_locations_string");
   EXPECT_TRUE(creds != nullptr);
 }
 

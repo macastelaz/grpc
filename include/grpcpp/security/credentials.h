@@ -19,7 +19,6 @@
 #ifndef GRPCPP_SECURITY_CREDENTIALS_H
 #define GRPCPP_SECURITY_CREDENTIALS_H
 
-#include "src/core/credentials/call/call_credentials.h"
 #include <grpc/event_engine/event_engine.h>
 #include <grpc/grpc_security_constants.h>
 #include <grpcpp/channel.h>
@@ -35,6 +34,8 @@
 #include <map>
 #include <memory>
 #include <vector>
+
+#include "src/core/credentials/call/call_credentials.h"
 
 struct grpc_call;
 
