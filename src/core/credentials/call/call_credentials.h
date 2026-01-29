@@ -22,16 +22,12 @@
 #include <grpc/grpc_security.h>
 #include <grpc/grpc_security_constants.h>
 #include <grpc/impl/grpc_types.h>
-#include <grpc/support/time.h>
 #include <grpc/support/port_platform.h>
+#include <grpc/support/time.h>
 
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "absl/status/statusor.h"
-#include "absl/strings/string_view.h"
-#include "absl/time/time.h"
 
 #include "src/core/credentials/transport/security_connector.h"
 #include "src/core/lib/channel/channel_args.h"
@@ -46,6 +42,7 @@
 #include "src/core/util/unique_type_name.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 
 // --- Constants. ---
 
@@ -62,9 +59,12 @@ typedef enum {
 
 #define GRPC_SECURE_TOKEN_REFRESH_THRESHOLD_SECS 60
 
-#define GRPC_REGIONAL_ACCESS_BOUNDARY_CACHE_DURATION_SECS 21600 // 6 hours, in seconds
-#define GRPC_REGIONAL_ACCESS_BOUNDARY_BASE_COOLDOWN_DURATION_SECS 900 // 15 minutes, in seconds
-#define GRPC_REGIONAL_ACCESS_BOUNDARY_MAX_COOLDOWN_DURATION_SECS 3600 // 60 minutes, in seconds
+#define GRPC_REGIONAL_ACCESS_BOUNDARY_CACHE_DURATION_SECS \
+  21600  // 6 hours, in seconds
+#define GRPC_REGIONAL_ACCESS_BOUNDARY_BASE_COOLDOWN_DURATION_SECS \
+  900  // 15 minutes, in seconds
+#define GRPC_REGIONAL_ACCESS_BOUNDARY_MAX_COOLDOWN_DURATION_SECS \
+  3600  // 60 minutes, in seconds
 
 #define GRPC_COMPUTE_ENGINE_METADATA_HOST "metadata.google.internal."
 #define GRPC_COMPUTE_ENGINE_METADATA_TOKEN_PATH \
@@ -98,15 +98,16 @@ void grpc_override_well_known_credentials_path_getter(
 struct RegionalAccessBoundary {
   std::string encoded_locations;
   std::vector<std::string> locations;
-  gpr_timespec expiration = gpr_time_add(gpr_now(GPR_CLOCK_REALTIME), gpr_time_from_seconds(
-          GRPC_REGIONAL_ACCESS_BOUNDARY_CACHE_DURATION_SECS, GPR_TIMESPAN));
+  gpr_timespec expiration = gpr_time_add(
+      gpr_now(GPR_CLOCK_REALTIME),
+      gpr_time_from_seconds(GRPC_REGIONAL_ACCESS_BOUNDARY_CACHE_DURATION_SECS,
+                            GPR_TIMESPAN));
 
   bool isValid() const {
     // 0 because we do not allow any grace after the expiration time passes
-    gpr_timespec grace_period = gpr_time_from_seconds(0, GPR_TIMESPAN); 
-    return gpr_time_cmp(
-              gpr_time_sub(expiration, gpr_now(GPR_CLOCK_REALTIME)),
-              grace_period) > 0;
+    gpr_timespec grace_period = gpr_time_from_seconds(0, GPR_TIMESPAN);
+    return gpr_time_cmp(gpr_time_sub(expiration, gpr_now(GPR_CLOCK_REALTIME)),
+                        grace_period) > 0;
   }
 };
 
@@ -155,7 +156,8 @@ struct grpc_call_credentials
   std::optional<RegionalAccessBoundary> regional_access_boundary_cache;
   bool regional_access_boundary_fetch_in_flight = false;
   int regional_access_boundary_cooldown_multiplier = 1;
-  gpr_timespec regional_access_boundary_cooldown_deadline = gpr_inf_past(GPR_CLOCK_REALTIME);
+  gpr_timespec regional_access_boundary_cooldown_deadline =
+      gpr_inf_past(GPR_CLOCK_REALTIME);
 
   virtual void InvalidateRegionalAccessBoundaryCache() {
     gpr_mu_lock(&regional_access_boundary_cache_mu);
@@ -163,8 +165,9 @@ struct grpc_call_credentials
     gpr_mu_unlock(&regional_access_boundary_cache_mu);
   }
 
-  // Builds the URL for looking up the regional access boundary. Implemented by each creds
-  // implementation which support the regional access boundary feature.
+  // Builds the URL for looking up the regional access boundary. Implemented by
+  // each creds implementation which support the regional access boundary
+  // feature.
   virtual std::string build_regional_access_boundary_url() {
     return "grpc_call_credentials did not provide regional access boundary url";
   }
