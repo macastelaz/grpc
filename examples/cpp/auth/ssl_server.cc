@@ -87,7 +87,6 @@ constexpr char kServerKeyPath[] = "credentials/localhost.key";
 #endif
 
 void RunServer(uint16_t port) {
-  
   std::string server_address = absl::StrFormat("127.0.0.1:%d", port);
   GreeterServiceImpl service;
   ServerBuilder builder;
