@@ -1581,7 +1581,7 @@ TEST_F(CredentialsTest, TestJwtCredsSigningFailure) {
 }
 
 TEST_F(CredentialsTest, TestJwtCredsWithRegionalAccessBoundary) {
-  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
   const char expected_creds_debug_string_prefix[] =
       "JWTAccessCredentials{ExpirationTime:";
 
@@ -1592,7 +1592,8 @@ TEST_F(CredentialsTest, TestJwtCredsWithRegionalAccessBoundary) {
                                  ", x-allowed-locations: foo");
   grpc_call_credentials* creds =
       grpc_service_account_jwt_access_credentials_create_with_regional_access_boundary(
-          json_key_string, grpc_max_auth_token_lifetime(), "{\"encodedLocations\": \"foo\"}", nullptr);
+          json_key_string, grpc_max_auth_token_lifetime(),
+          "{\"encodedLocations\": \"foo\"}", nullptr);
 
   // Request: jwt_encode_and_sign should be called.
   auto state = RequestMetadataState::NewInstance(absl::OkStatus(), emd);
@@ -1614,11 +1615,11 @@ TEST_F(CredentialsTest, TestJwtCredsWithRegionalAccessBoundary) {
   gpr_free(json_key_string);
   grpc_jwt_encode_and_sign_set_override(nullptr);
   HttpRequest::SetOverride(nullptr, nullptr, nullptr);
-  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+  UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 TEST_F(CredentialsTest, TestJwtCredsWithFullRegionalAccessBoundary) {
-  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
   const char expected_creds_debug_string_prefix[] =
       "JWTAccessCredentials{ExpirationTime:";
 
@@ -1629,8 +1630,10 @@ TEST_F(CredentialsTest, TestJwtCredsWithFullRegionalAccessBoundary) {
                                  ", x-allowed-locations: foo");
   grpc_call_credentials* creds =
       grpc_service_account_jwt_access_credentials_create_with_regional_access_boundary(
-          json_key_string, grpc_max_auth_token_lifetime(), "{\"encodedLocations\": \"foo\", \"locations\": [\"us-west1\", "
-      "\"us-east1\"]}", nullptr);
+          json_key_string, grpc_max_auth_token_lifetime(),
+          "{\"encodedLocations\": \"foo\", \"locations\": [\"us-west1\", "
+          "\"us-east1\"]}",
+          nullptr);
 
   // Request: jwt_encode_and_sign should be called.
   auto state = RequestMetadataState::NewInstance(absl::OkStatus(), emd);
@@ -1657,7 +1660,7 @@ TEST_F(CredentialsTest, TestJwtCredsWithFullRegionalAccessBoundary) {
   gpr_free(json_key_string);
   grpc_jwt_encode_and_sign_set_override(nullptr);
   HttpRequest::SetOverride(nullptr, nullptr, nullptr);
-  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+  UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 int regional_access_boundary_httpcli_get_success(
@@ -1671,7 +1674,7 @@ int regional_access_boundary_httpcli_get_success(
 }
 
 TEST_F(CredentialsTest, TestJwtCredsFetchRegionalAccessBoundary) {
-  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
 
   char* json_key_string = test_json_key_str();
   ExecCtx exec_ctx;
@@ -1711,7 +1714,7 @@ TEST_F(CredentialsTest, TestJwtCredsFetchRegionalAccessBoundary) {
   gpr_free(json_key_string);
   grpc_jwt_encode_and_sign_set_override(nullptr);
   HttpRequest::SetOverride(nullptr, nullptr, nullptr);
-  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+  UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 void set_google_default_creds_env_var_with_file_contents(
@@ -1868,7 +1871,7 @@ TEST_F(CredentialsTest,
 TEST_F(CredentialsTest,
 
        TestExternalAccountCredentialsWithRegionalAccessBoundary) {
-  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
 
   std::string json_options =
 
@@ -1892,11 +1895,12 @@ TEST_F(CredentialsTest,
 
   ExecCtx exec_ctx;
 
-    grpc_call_credentials* creds =
+  grpc_call_credentials* creds =
 
-        grpc_external_account_credentials_create_with_regional_access_boundary(
+      grpc_external_account_credentials_create_with_regional_access_boundary(
 
-            json_options.c_str(), "scope1,scope2", "{\"encodedLocations\": \"foo\"}");
+          json_options.c_str(), "scope1,scope2",
+          "{\"encodedLocations\": \"foo\"}");
 
   GRPC_CHECK_NE(creds, nullptr);
 
@@ -1968,7 +1972,7 @@ TEST_F(CredentialsTest,
 
   HttpRequest::SetOverride(nullptr, nullptr, nullptr);
 
-  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+  UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 int default_creds_metadata_server_detection_httpcli_get_success_override(

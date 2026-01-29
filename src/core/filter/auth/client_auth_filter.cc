@@ -33,6 +33,7 @@
 #include "src/core/call/security_context.h"
 #include "src/core/call/status_util.h"
 #include "src/core/credentials/call/call_credentials.h"
+#include "src/core/credentials/call/call_creds_util.h"
 #include "src/core/credentials/transport/security_connector.h"
 #include "src/core/filter/auth/auth_filters.h"
 #include "src/core/lib/channel/channel_args.h"
@@ -41,7 +42,6 @@
 #include "src/core/lib/channel/promise_based_filter.h"
 #include "src/core/lib/promise/arena_promise.h"
 #include "src/core/lib/promise/context.h"
-#include "src/core/credentials/call/call_creds_util.h"
 #include "src/core/lib/promise/promise.h"
 #include "src/core/lib/promise/seq.h"
 #include "src/core/lib/promise/try_seq.h"
@@ -190,10 +190,11 @@ absl::StatusOr<std::unique_ptr<ClientAuthFilter>> ClientAuthFilter::Create(
 const grpc_channel_filter ClientAuthFilter::kFilter =
     MakePromiseBasedFilter<ClientAuthFilter, FilterEndpoint::kClient>();
 
-void ClientAuthFilter::Call::OnServerTrailingMetadata(ServerMetadata& md,
-                                                     ClientAuthFilter* filter) {
+void ClientAuthFilter::Call::OnServerTrailingMetadata(
+    ServerMetadata& md, ClientAuthFilter* filter) {
   auto status = md.get(GrpcStatusMetadata());
-  if (status.has_value() && grpc_core::IsStaleRegionalAccessBoundaryError(
+  if (status.has_value() &&
+      IsStaleRegionalAccessBoundaryError(
           *status, md.get_pointer(GrpcMessageMetadata()))) {
     auto* sec_ctx = GetContext<grpc_client_security_context>();
     if (sec_ctx != nullptr && sec_ctx->creds != nullptr) {
