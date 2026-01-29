@@ -68,8 +68,9 @@ grpc_service_account_jwt_access_credentials_create_with_regional_access_boundary
 GRPCAPI grpc_call_credentials* grpc_external_account_credentials_create(
     const char* json_string, const char* scopes_string);
 
-/** Same as grpc_external_account_credentials_create, but with regional_access_boundary
-   to pre-populate the regional access boundary cache. */
+/** Same as grpc_external_account_credentials_create, but with
+   regional_access_boundary to pre-populate the regional access boundary cache.
+ */
 GRPCAPI grpc_call_credentials*
 grpc_external_account_credentials_create_with_regional_access_boundary(
     const char* json_string, const char* scopes_string,

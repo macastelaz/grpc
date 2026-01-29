@@ -1726,6 +1726,7 @@ if(gRPC_BUILD_TESTS)
   add_dependencies(buildtests_cxx rbac_translator_test)
   add_dependencies(buildtests_cxx ref_counted_ptr_test)
   add_dependencies(buildtests_cxx ref_counted_test)
+  add_dependencies(buildtests_cxx regional_access_boundary_util_test)
   if(_gRPC_PLATFORM_LINUX OR _gRPC_PLATFORM_MAC OR _gRPC_PLATFORM_POSIX)
     add_dependencies(buildtests_cxx remove_stream_from_stalled_lists_test)
   endif()
@@ -2284,6 +2285,7 @@ add_library(grpc
   src/core/credentials/call/jwt_util.cc
   src/core/credentials/call/oauth2/oauth2_credentials.cc
   src/core/credentials/call/plugin/plugin_credentials.cc
+  src/core/credentials/call/regional_access_boundary_util.cc
   src/core/credentials/call/token_fetcher/token_fetcher_credentials.cc
   src/core/credentials/transport/alts/alts_credentials.cc
   src/core/credentials/transport/alts/alts_security_connector.cc
@@ -3106,6 +3108,7 @@ add_library(grpc
   src/core/xds/xds_client/xds_backend_metric_propagation.cc
   src/core/xds/xds_client/xds_bootstrap.cc
   src/core/xds/xds_client/xds_client.cc
+  src/cpp/client/global_callback_hook.cc
 )
 
 target_compile_features(grpc PUBLIC cxx_std_17)
@@ -3153,24 +3156,31 @@ target_link_libraries(grpc
   ${_gRPC_RE2_LIBRARIES}
   ${_gRPC_ZLIB_LIBRARIES}
   absl::algorithm_container
+  absl::dynamic_annotations
   absl::no_destructor
+  absl::prefetch
   absl::btree
   absl::flat_hash_map
   absl::flat_hash_set
   absl::inlined_vector
+  absl::layout
   absl::node_hash_map
   absl::function_ref
   absl::hash
+  absl::absl_check
+  absl::absl_log
   absl::type_traits
   absl::random_bit_gen_ref
   absl::random_distributions
   absl::statusor
+  absl::strings_internal
   absl::string_view
   absl::span
   absl::utility
   ${_gRPC_CARES_LIBRARIES}
   gpr
   ${_gRPC_SSL_LIBRARIES}
+  ${_gRPC_PROTOBUF_LIBRARIES}
   ${_gRPC_ADDRESS_SORTING_LIBRARIES}
 )
 if(_gRPC_PLATFORM_IOS OR _gRPC_PLATFORM_MAC)
@@ -3178,6 +3188,78 @@ if(_gRPC_PLATFORM_IOS OR _gRPC_PLATFORM_MAC)
 endif()
 
 foreach(_hdr
+  include/grpc++/alarm.h
+  include/grpc++/channel.h
+  include/grpc++/client_context.h
+  include/grpc++/completion_queue.h
+  include/grpc++/create_channel.h
+  include/grpc++/create_channel_posix.h
+  include/grpc++/ext/health_check_service_server_builder_option.h
+  include/grpc++/generic/async_generic_service.h
+  include/grpc++/generic/generic_stub.h
+  include/grpc++/grpc++.h
+  include/grpc++/health_check_service_interface.h
+  include/grpc++/impl/call.h
+  include/grpc++/impl/channel_argument_option.h
+  include/grpc++/impl/client_unary_call.h
+  include/grpc++/impl/codegen/async_stream.h
+  include/grpc++/impl/codegen/async_unary_call.h
+  include/grpc++/impl/codegen/byte_buffer.h
+  include/grpc++/impl/codegen/call.h
+  include/grpc++/impl/codegen/channel_interface.h
+  include/grpc++/impl/codegen/client_context.h
+  include/grpc++/impl/codegen/client_unary_call.h
+  include/grpc++/impl/codegen/completion_queue.h
+  include/grpc++/impl/codegen/completion_queue_tag.h
+  include/grpc++/impl/codegen/config.h
+  include/grpc++/impl/codegen/config_protobuf.h
+  include/grpc++/impl/codegen/create_auth_context.h
+  include/grpc++/impl/codegen/metadata_map.h
+  include/grpc++/impl/codegen/method_handler_impl.h
+  include/grpc++/impl/codegen/rpc_method.h
+  include/grpc++/impl/codegen/rpc_service_method.h
+  include/grpc++/impl/codegen/security/auth_context.h
+  include/grpc++/impl/codegen/serialization_traits.h
+  include/grpc++/impl/codegen/server_context.h
+  include/grpc++/impl/codegen/server_interface.h
+  include/grpc++/impl/codegen/service_type.h
+  include/grpc++/impl/codegen/slice.h
+  include/grpc++/impl/codegen/status.h
+  include/grpc++/impl/codegen/status_code_enum.h
+  include/grpc++/impl/codegen/string_ref.h
+  include/grpc++/impl/codegen/stub_options.h
+  include/grpc++/impl/codegen/sync_stream.h
+  include/grpc++/impl/codegen/time.h
+  include/grpc++/impl/grpc_library.h
+  include/grpc++/impl/method_handler_impl.h
+  include/grpc++/impl/rpc_method.h
+  include/grpc++/impl/rpc_service_method.h
+  include/grpc++/impl/serialization_traits.h
+  include/grpc++/impl/server_builder_option.h
+  include/grpc++/impl/server_builder_plugin.h
+  include/grpc++/impl/server_initializer.h
+  include/grpc++/impl/service_type.h
+  include/grpc++/resource_quota.h
+  include/grpc++/security/auth_context.h
+  include/grpc++/security/auth_metadata_processor.h
+  include/grpc++/security/credentials.h
+  include/grpc++/security/server_credentials.h
+  include/grpc++/server.h
+  include/grpc++/server_builder.h
+  include/grpc++/server_context.h
+  include/grpc++/server_posix.h
+  include/grpc++/support/async_stream.h
+  include/grpc++/support/async_unary_call.h
+  include/grpc++/support/byte_buffer.h
+  include/grpc++/support/channel_arguments.h
+  include/grpc++/support/config.h
+  include/grpc++/support/slice.h
+  include/grpc++/support/status.h
+  include/grpc++/support/status_code_enum.h
+  include/grpc++/support/string_ref.h
+  include/grpc++/support/stub_options.h
+  include/grpc++/support/sync_stream.h
+  include/grpc++/support/time.h
   include/grpc/byte_buffer.h
   include/grpc/byte_buffer_reader.h
   include/grpc/census.h
@@ -3225,6 +3307,132 @@ foreach(_hdr
   include/grpc/slice_buffer.h
   include/grpc/status.h
   include/grpc/support/workaround_list.h
+  include/grpcpp/alarm.h
+  include/grpcpp/channel.h
+  include/grpcpp/client_context.h
+  include/grpcpp/completion_queue.h
+  include/grpcpp/create_channel.h
+  include/grpcpp/create_channel_posix.h
+  include/grpcpp/ext/health_check_service_server_builder_option.h
+  include/grpcpp/generic/async_generic_service.h
+  include/grpcpp/generic/callback_generic_service.h
+  include/grpcpp/generic/generic_stub.h
+  include/grpcpp/generic/generic_stub_callback.h
+  include/grpcpp/grpcpp.h
+  include/grpcpp/health_check_service_interface.h
+  include/grpcpp/impl/call.h
+  include/grpcpp/impl/call_op_set.h
+  include/grpcpp/impl/call_op_set_interface.h
+  include/grpcpp/impl/channel_argument_option.h
+  include/grpcpp/impl/channel_interface.h
+  include/grpcpp/impl/client_unary_call.h
+  include/grpcpp/impl/codegen/async_generic_service.h
+  include/grpcpp/impl/codegen/async_stream.h
+  include/grpcpp/impl/codegen/async_unary_call.h
+  include/grpcpp/impl/codegen/byte_buffer.h
+  include/grpcpp/impl/codegen/call.h
+  include/grpcpp/impl/codegen/call_op_set.h
+  include/grpcpp/impl/codegen/call_op_set_interface.h
+  include/grpcpp/impl/codegen/callback_common.h
+  include/grpcpp/impl/codegen/channel_interface.h
+  include/grpcpp/impl/codegen/client_callback.h
+  include/grpcpp/impl/codegen/client_context.h
+  include/grpcpp/impl/codegen/client_interceptor.h
+  include/grpcpp/impl/codegen/client_unary_call.h
+  include/grpcpp/impl/codegen/completion_queue.h
+  include/grpcpp/impl/codegen/completion_queue_tag.h
+  include/grpcpp/impl/codegen/config.h
+  include/grpcpp/impl/codegen/config_protobuf.h
+  include/grpcpp/impl/codegen/create_auth_context.h
+  include/grpcpp/impl/codegen/delegating_channel.h
+  include/grpcpp/impl/codegen/intercepted_channel.h
+  include/grpcpp/impl/codegen/interceptor.h
+  include/grpcpp/impl/codegen/interceptor_common.h
+  include/grpcpp/impl/codegen/message_allocator.h
+  include/grpcpp/impl/codegen/metadata_map.h
+  include/grpcpp/impl/codegen/method_handler.h
+  include/grpcpp/impl/codegen/method_handler_impl.h
+  include/grpcpp/impl/codegen/rpc_method.h
+  include/grpcpp/impl/codegen/rpc_service_method.h
+  include/grpcpp/impl/codegen/security/auth_context.h
+  include/grpcpp/impl/codegen/serialization_traits.h
+  include/grpcpp/impl/codegen/server_callback.h
+  include/grpcpp/impl/codegen/server_callback_handlers.h
+  include/grpcpp/impl/codegen/server_context.h
+  include/grpcpp/impl/codegen/server_interceptor.h
+  include/grpcpp/impl/codegen/server_interface.h
+  include/grpcpp/impl/codegen/service_type.h
+  include/grpcpp/impl/codegen/slice.h
+  include/grpcpp/impl/codegen/status.h
+  include/grpcpp/impl/codegen/status_code_enum.h
+  include/grpcpp/impl/codegen/string_ref.h
+  include/grpcpp/impl/codegen/stub_options.h
+  include/grpcpp/impl/codegen/sync.h
+  include/grpcpp/impl/codegen/sync_stream.h
+  include/grpcpp/impl/codegen/time.h
+  include/grpcpp/impl/completion_queue_tag.h
+  include/grpcpp/impl/create_auth_context.h
+  include/grpcpp/impl/delegating_channel.h
+  include/grpcpp/impl/generic_stub_internal.h
+  include/grpcpp/impl/grpc_library.h
+  include/grpcpp/impl/intercepted_channel.h
+  include/grpcpp/impl/interceptor_common.h
+  include/grpcpp/impl/metadata_map.h
+  include/grpcpp/impl/method_handler_impl.h
+  include/grpcpp/impl/rpc_method.h
+  include/grpcpp/impl/rpc_service_method.h
+  include/grpcpp/impl/serialization_traits.h
+  include/grpcpp/impl/server_builder_option.h
+  include/grpcpp/impl/server_builder_plugin.h
+  include/grpcpp/impl/server_callback_handlers.h
+  include/grpcpp/impl/server_initializer.h
+  include/grpcpp/impl/service_type.h
+  include/grpcpp/impl/status.h
+  include/grpcpp/impl/sync.h
+  include/grpcpp/passive_listener.h
+  include/grpcpp/ports_def.inc
+  include/grpcpp/ports_undef.inc
+  include/grpcpp/resource_quota.h
+  include/grpcpp/security/audit_logging.h
+  include/grpcpp/security/auth_context.h
+  include/grpcpp/security/auth_metadata_processor.h
+  include/grpcpp/security/authorization_policy_provider.h
+  include/grpcpp/security/credentials.h
+  include/grpcpp/security/server_credentials.h
+  include/grpcpp/security/tls_certificate_provider.h
+  include/grpcpp/security/tls_certificate_verifier.h
+  include/grpcpp/security/tls_credentials_options.h
+  include/grpcpp/security/tls_crl_provider.h
+  include/grpcpp/server.h
+  include/grpcpp/server_builder.h
+  include/grpcpp/server_context.h
+  include/grpcpp/server_interface.h
+  include/grpcpp/server_posix.h
+  include/grpcpp/support/async_stream.h
+  include/grpcpp/support/async_unary_call.h
+  include/grpcpp/support/byte_buffer.h
+  include/grpcpp/support/callback_common.h
+  include/grpcpp/support/channel_arguments.h
+  include/grpcpp/support/client_callback.h
+  include/grpcpp/support/client_interceptor.h
+  include/grpcpp/support/config.h
+  include/grpcpp/support/global_callback_hook.h
+  include/grpcpp/support/interceptor.h
+  include/grpcpp/support/message_allocator.h
+  include/grpcpp/support/method_handler.h
+  include/grpcpp/support/proto_buffer_reader.h
+  include/grpcpp/support/proto_buffer_writer.h
+  include/grpcpp/support/server_callback.h
+  include/grpcpp/support/server_interceptor.h
+  include/grpcpp/support/slice.h
+  include/grpcpp/support/status.h
+  include/grpcpp/support/status_code_enum.h
+  include/grpcpp/support/string_ref.h
+  include/grpcpp/support/stub_options.h
+  include/grpcpp/support/sync_stream.h
+  include/grpcpp/support/time.h
+  include/grpcpp/support/validate_service_config.h
+  include/grpcpp/version_info.h
 )
   string(REPLACE "include/" "" _path ${_hdr})
   get_filename_component(_path ${_path} PATH)
@@ -4822,7 +5030,6 @@ add_library(grpc++
   src/cpp/client/create_channel.cc
   src/cpp/client/create_channel_internal.cc
   src/cpp/client/create_channel_posix.cc
-  src/cpp/client/global_callback_hook.cc
   src/cpp/client/insecure_credentials.cc
   src/cpp/client/secure_credentials.cc
   src/cpp/client/xds_credentials.cc
@@ -4907,14 +5114,7 @@ target_include_directories(grpc++
 )
 target_link_libraries(grpc++
   ${_gRPC_ALLTARGETS_LIBRARIES}
-  absl::dynamic_annotations
-  absl::prefetch
-  absl::layout
-  absl::absl_check
-  absl::absl_log
-  absl::strings_internal
   grpc
-  ${_gRPC_PROTOBUF_LIBRARIES}
 )
 
 foreach(_hdr
@@ -4942,7 +5142,6 @@ foreach(_hdr
   include/grpc++/impl/codegen/completion_queue.h
   include/grpc++/impl/codegen/completion_queue_tag.h
   include/grpc++/impl/codegen/config.h
-  include/grpc++/impl/codegen/config_protobuf.h
   include/grpc++/impl/codegen/create_auth_context.h
   include/grpc++/impl/codegen/metadata_map.h
   include/grpc++/impl/codegen/method_handler_impl.h
@@ -5028,7 +5227,6 @@ foreach(_hdr
   include/grpcpp/impl/codegen/completion_queue.h
   include/grpcpp/impl/codegen/completion_queue_tag.h
   include/grpcpp/impl/codegen/config.h
-  include/grpcpp/impl/codegen/config_protobuf.h
   include/grpcpp/impl/codegen/create_auth_context.h
   include/grpcpp/impl/codegen/delegating_channel.h
   include/grpcpp/impl/codegen/intercepted_channel.h
@@ -5107,7 +5305,6 @@ foreach(_hdr
   include/grpcpp/support/client_callback.h
   include/grpcpp/support/client_interceptor.h
   include/grpcpp/support/config.h
-  include/grpcpp/support/global_callback_hook.h
   include/grpcpp/support/interceptor.h
   include/grpcpp/support/message_allocator.h
   include/grpcpp/support/method_handler.h
@@ -9594,7 +9791,6 @@ target_include_directories(call_credentials_test
 target_link_libraries(call_credentials_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -11931,7 +12127,6 @@ target_include_directories(client_auth_filter_test
 target_link_libraries(client_auth_filter_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -11981,7 +12176,6 @@ target_include_directories(client_authority_filter_test
 target_link_libraries(client_authority_filter_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -14083,7 +14277,6 @@ if(_gRPC_PLATFORM_LINUX OR _gRPC_PLATFORM_MAC OR _gRPC_PLATFORM_POSIX)
     absl::log_sink
     absl::log_sink_registry
     grpc_authorization_provider
-    ${_gRPC_PROTOBUF_LIBRARIES}
     grpc_test_util
   )
 
@@ -14276,7 +14469,6 @@ if(_gRPC_PLATFORM_LINUX OR _gRPC_PLATFORM_MAC OR _gRPC_PLATFORM_POSIX)
     absl::log_sink
     absl::log_sink_registry
     grpc_authorization_provider
-    ${_gRPC_PROTOBUF_LIBRARIES}
     grpc_test_util
   )
 
@@ -14380,7 +14572,6 @@ target_link_libraries(end2end_http2_no_logging_test
   absl::log_sink
   absl::log_sink_registry
   grpc_authorization_provider
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -14483,7 +14674,6 @@ target_link_libraries(end2end_http2_security_no_logging_test
   absl::log_sink
   absl::log_sink_registry
   grpc_authorization_provider
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -14674,7 +14864,6 @@ target_link_libraries(end2end_http2_security_test
   absl::log_sink
   absl::log_sink_registry
   grpc_authorization_provider
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -14865,7 +15054,6 @@ target_link_libraries(end2end_http2_test
   absl::log_sink
   absl::log_sink_registry
   grpc_authorization_provider
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -14968,7 +15156,6 @@ target_link_libraries(end2end_inproc_no_logging_test
   absl::log_sink
   absl::log_sink_registry
   grpc_authorization_provider
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -15159,7 +15346,6 @@ target_link_libraries(end2end_inproc_test
   absl::log_sink
   absl::log_sink_registry
   grpc_authorization_provider
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -15262,7 +15448,6 @@ target_link_libraries(end2end_ph2_no_logging_test
   absl::log_sink
   absl::log_sink_registry
   grpc_authorization_provider
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -15453,7 +15638,6 @@ target_link_libraries(end2end_ph2_test
   absl::log_sink
   absl::log_sink_registry
   grpc_authorization_provider
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -15556,7 +15740,6 @@ target_link_libraries(end2end_posix_no_logging_test
   absl::log_sink
   absl::log_sink_registry
   grpc_authorization_provider
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -15747,7 +15930,6 @@ target_link_libraries(end2end_posix_test
   absl::log_sink
   absl::log_sink_registry
   grpc_authorization_provider
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -17301,7 +17483,6 @@ target_link_libraries(filter_test_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
   grpc_unsecure
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -18113,7 +18294,6 @@ if(_gRPC_PLATFORM_LINUX OR _gRPC_PLATFORM_POSIX)
   target_link_libraries(fuzzing_event_engine_test
     ${_gRPC_ALLTARGETS_LIBRARIES}
     gtest
-    ${_gRPC_PROTOBUF_LIBRARIES}
     grpc_test_util
   )
 
@@ -18163,7 +18343,6 @@ target_include_directories(fuzzing_event_engine_unittest
 target_link_libraries(fuzzing_event_engine_unittest
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -18213,7 +18392,6 @@ target_include_directories(gcp_authentication_filter_test
 target_link_libraries(gcp_authentication_filter_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -19555,7 +19733,6 @@ target_include_directories(grpc_tls_crl_provider_test
 target_link_libraries(grpc_tls_crl_provider_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -19923,7 +20100,6 @@ target_include_directories(h2_ssl_cert_test
 target_link_libraries(h2_ssl_cert_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -20622,7 +20798,6 @@ target_include_directories(http2_client_transport_test
 target_link_libraries(http2_client_transport_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -20672,7 +20847,6 @@ target_include_directories(http2_security_frame_test
 target_link_libraries(http2_security_frame_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -20724,7 +20898,6 @@ if(_gRPC_PLATFORM_LINUX OR _gRPC_PLATFORM_MAC OR _gRPC_PLATFORM_POSIX)
   target_link_libraries(http2_server_transport_test
     ${_gRPC_ALLTARGETS_LIBRARIES}
     gtest
-    ${_gRPC_PROTOBUF_LIBRARIES}
     grpc_test_util
   )
 
@@ -20945,7 +21118,6 @@ target_include_directories(http2_transport_test
 target_link_libraries(http2_transport_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -26095,7 +26267,6 @@ target_include_directories(outlier_detection_test
 target_link_libraries(outlier_detection_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -26563,7 +26734,6 @@ target_include_directories(pick_first_test
 target_link_libraries(pick_first_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -29541,6 +29711,48 @@ target_link_libraries(ref_counted_test
 
 endif()
 if(gRPC_BUILD_TESTS)
+
+add_executable(regional_access_boundary_util_test
+  test/core/credentials/call/regional_access_boundary_util_test.cc
+)
+if(WIN32 AND MSVC)
+  if(BUILD_SHARED_LIBS)
+    target_compile_definitions(regional_access_boundary_util_test
+    PRIVATE
+      "GPR_DLL_IMPORTS"
+      "GRPC_DLL_IMPORTS"
+    )
+  endif()
+endif()
+target_compile_features(regional_access_boundary_util_test PUBLIC cxx_std_17)
+target_include_directories(regional_access_boundary_util_test
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${_gRPC_ADDRESS_SORTING_INCLUDE_DIR}
+    ${_gRPC_RE2_INCLUDE_DIR}
+    ${_gRPC_SSL_INCLUDE_DIR}
+    ${_gRPC_UPB_GENERATED_DIR}
+    ${_gRPC_UPB_GRPC_GENERATED_DIR}
+    ${_gRPC_UPB_INCLUDE_DIR}
+    ${_gRPC_XXHASH_INCLUDE_DIR}
+    ${_gRPC_ZLIB_INCLUDE_DIR}
+    third_party/googletest/googletest/include
+    third_party/googletest/googletest
+    third_party/googletest/googlemock/include
+    third_party/googletest/googlemock
+    ${_gRPC_PROTO_GENS_DIR}
+)
+
+target_link_libraries(regional_access_boundary_util_test
+  ${_gRPC_ALLTARGETS_LIBRARIES}
+  gtest
+  grpc_test_util
+)
+
+
+endif()
+if(gRPC_BUILD_TESTS)
 if(_gRPC_PLATFORM_LINUX OR _gRPC_PLATFORM_MAC OR _gRPC_PLATFORM_POSIX)
 
   add_executable(remove_stream_from_stalled_lists_test
@@ -30216,7 +30428,6 @@ target_include_directories(ring_hash_test
 target_link_libraries(ring_hash_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -30397,7 +30608,6 @@ target_include_directories(round_robin_test
 target_link_libraries(round_robin_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -31664,7 +31874,6 @@ target_include_directories(settings_timeout_manager_test
 target_link_libraries(settings_timeout_manager_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -32939,7 +33148,6 @@ target_include_directories(stream_data_queue_test
 target_link_libraries(stream_data_queue_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -36937,7 +37145,6 @@ target_include_directories(weighted_round_robin_test
 target_link_libraries(weighted_round_robin_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -37165,7 +37372,6 @@ target_include_directories(writable_streams_test
 target_link_libraries(writable_streams_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -38397,7 +38603,6 @@ add_executable(xds_client_test
   ${_gRPC_PROTO_GENS_DIR}/xds/type/v3/typed_struct.grpc.pb.cc
   ${_gRPC_PROTO_GENS_DIR}/xds/type/v3/typed_struct.pb.h
   ${_gRPC_PROTO_GENS_DIR}/xds/type/v3/typed_struct.grpc.pb.h
-  src/cpp/client/global_callback_hook.cc
   src/cpp/util/status.cc
   test/core/event_engine/event_engine_test_utils.cc
   test/core/event_engine/fuzzing_event_engine/fuzzing_event_engine.cc
@@ -38436,13 +38641,6 @@ target_include_directories(xds_client_test
 target_link_libraries(xds_client_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  absl::dynamic_annotations
-  absl::prefetch
-  absl::layout
-  absl::absl_check
-  absl::absl_log
-  absl::strings_internal
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -39467,7 +39665,6 @@ add_executable(xds_cluster_resource_type_test
   ${_gRPC_PROTO_GENS_DIR}/xds/type/v3/typed_struct.grpc.pb.cc
   ${_gRPC_PROTO_GENS_DIR}/xds/type/v3/typed_struct.pb.h
   ${_gRPC_PROTO_GENS_DIR}/xds/type/v3/typed_struct.grpc.pb.h
-  src/cpp/client/global_callback_hook.cc
   src/cpp/util/status.cc
   test/core/xds/xds_cluster_resource_type_test.cc
 )
@@ -39503,13 +39700,6 @@ target_include_directories(xds_cluster_resource_type_test
 target_link_libraries(xds_cluster_resource_type_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  absl::dynamic_annotations
-  absl::prefetch
-  absl::layout
-  absl::absl_check
-  absl::absl_log
-  absl::strings_internal
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -42597,7 +42787,6 @@ add_executable(xds_endpoint_resource_type_test
   ${_gRPC_PROTO_GENS_DIR}/xds/core/v3/resource_name.grpc.pb.cc
   ${_gRPC_PROTO_GENS_DIR}/xds/core/v3/resource_name.pb.h
   ${_gRPC_PROTO_GENS_DIR}/xds/core/v3/resource_name.grpc.pb.h
-  src/cpp/client/global_callback_hook.cc
   src/cpp/util/status.cc
   test/core/xds/xds_endpoint_resource_type_test.cc
 )
@@ -42633,13 +42822,6 @@ target_include_directories(xds_endpoint_resource_type_test
 target_link_libraries(xds_endpoint_resource_type_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  absl::dynamic_annotations
-  absl::prefetch
-  absl::layout
-  absl::absl_check
-  absl::absl_log
-  absl::strings_internal
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -46671,7 +46853,6 @@ target_include_directories(xds_matcher_parse_test
 target_link_libraries(xds_matcher_parse_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -47020,7 +47201,6 @@ target_include_directories(xds_metadata_test
 target_link_libraries(xds_metadata_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -48203,7 +48383,6 @@ target_include_directories(xds_override_host_test
 target_link_libraries(xds_override_host_test
   ${_gRPC_ALLTARGETS_LIBRARIES}
   gtest
-  ${_gRPC_PROTOBUF_LIBRARIES}
   grpc_test_util
 )
 
@@ -53205,7 +53384,7 @@ generate_pkgconfig(
   "gRPC"
   "high performance general RPC framework"
   "${gRPC_CORE_VERSION}"
-  "absl_algorithm_container absl_any_invocable absl_base absl_bind_front absl_bits absl_btree absl_check absl_cleanup absl_config absl_cord absl_core_headers absl_flags absl_flags_marshalling absl_flat_hash_map absl_flat_hash_set absl_function_ref absl_hash absl_inlined_vector absl_log absl_log_globals absl_log_severity absl_memory absl_no_destructor absl_node_hash_map absl_optional absl_random_bit_gen_ref absl_random_distributions absl_random_random absl_span absl_status absl_statusor absl_str_format absl_string_view absl_strings absl_synchronization absl_time absl_type_traits absl_utility gpr"
+  "absl_absl_check absl_absl_log absl_algorithm_container absl_any_invocable absl_base absl_bind_front absl_bits absl_btree absl_check absl_cleanup absl_config absl_cord absl_core_headers absl_dynamic_annotations absl_flags absl_flags_marshalling absl_flat_hash_map absl_flat_hash_set absl_function_ref absl_hash absl_inlined_vector absl_layout absl_log absl_log_globals absl_log_severity absl_memory absl_no_destructor absl_node_hash_map absl_optional absl_prefetch absl_random_bit_gen_ref absl_random_distributions absl_random_random absl_span absl_status absl_statusor absl_str_format absl_string_view absl_strings absl_strings_internal absl_synchronization absl_time absl_type_traits absl_utility gpr"
   "libcares openssl re2 zlib"
   "-lgrpc"
   "-laddress_sorting -lupb_textformat_lib -lupb_json_lib -lupb_reflection_lib -lupb_wire_lib -lupb_message_lib -lutf8_range_lib -lupb_mini_descriptor_lib -lupb_mini_table_lib -lupb_hash_lib -lupb_mem_lib -lupb_base_lib -lupb_lex_lib"
