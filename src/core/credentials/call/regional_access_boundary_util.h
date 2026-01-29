@@ -19,18 +19,17 @@
 #ifndef GRPC_SRC_CORE_CREDENTIALS_CALL_REGIONAL_ACCESS_BOUNDARY_UTIL_H
 #define GRPC_SRC_CORE_CREDENTIALS_CALL_REGIONAL_ACCESS_BOUNDARY_UTIL_H
 
-#include "absl/status/statusor.h"
+#include "src/core/call/metadata.h"
 #include "src/core/credentials/call/call_credentials.h"
 #include "src/core/lib/promise/arena_promise.h"
 #include "src/core/util/ref_counted_ptr.h"
-#include "src/core/call/metadata.h"
-
+#include "absl/status/statusor.h"
 
 namespace grpc_core {
 
-grpc_core::ArenaPromise<absl::StatusOr<grpc_core::ClientMetadataHandle>> FetchRegionalAccessBoundary(
-    grpc_core::RefCountedPtr<grpc_call_credentials> creds,
-    grpc_core::ClientMetadataHandle initial_metadata);
+ArenaPromise<absl::StatusOr<ClientMetadataHandle>> FetchRegionalAccessBoundary(
+    RefCountedPtr<grpc_call_credentials> creds,
+    ClientMetadataHandle initial_metadata);
 
 }  // namespace grpc_core
 
