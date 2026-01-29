@@ -26,7 +26,6 @@
 
 #include <unordered_set>
 
-#include "absl/log/log.h"
 #include "src/core/call/metadata_batch.h"
 #include "src/core/credentials/call/call_credentials.h"
 #include "src/core/credentials/call/call_creds_util.h"
@@ -43,6 +42,8 @@
 #include "src/core/util/http_client/httpcli_ssl_credentials.h"
 #include "src/core/util/json/json.h"
 #include "src/core/util/json/json_reader.h"
+#include "absl/log/log.h"
+#include "absl/strings/match.h"
 
 namespace grpc_core {
 
@@ -59,28 +60,26 @@ constexpr int HTTP_SERVICE_UNAVAILABLE = 503;
 constexpr int HTTP_GATEWAY_TIMEOUT = 504;
 
 const std::unordered_set<int> kRetryableStatusCodes = {
-    HTTP_FORBIDDEN,           HTTP_NOT_FOUND,
-    HTTP_INTERNAL_SERVER_ERROR, HTTP_BAD_GATEWAY,
-    HTTP_SERVICE_UNAVAILABLE,   HTTP_GATEWAY_TIMEOUT};
+    HTTP_FORBIDDEN,   HTTP_NOT_FOUND,           HTTP_INTERNAL_SERVER_ERROR,
+    HTTP_BAD_GATEWAY, HTTP_SERVICE_UNAVAILABLE, HTTP_GATEWAY_TIMEOUT};
 }  // namespace
 
 struct RegionalAccessBoundaryRequest
-    : public grpc_core::RefCounted<RegionalAccessBoundaryRequest> {
-  grpc_core::RefCountedPtr<grpc_call_credentials> creds;
+    : public RefCounted<RegionalAccessBoundaryRequest> {
+  RefCountedPtr<grpc_call_credentials> creds;
   grpc_http_response response;
-  grpc_core::OrphanablePtr<grpc_core::HttpRequest> http_request;
+  OrphanablePtr<HttpRequest> http_request;
 
   // Retry state
-  grpc_core::BackOff backoff;
+  BackOff backoff;
   std::string access_token;
-  grpc_core::URI uri;
+  URI uri;
   grpc_polling_entity pollent;
   grpc_timer retry_timer;
   grpc_closure retry_callback;
   int num_retries = 0;
 
-  explicit RegionalAccessBoundaryRequest(
-      grpc_core::BackOff::Options backoff_options)
+  explicit RegionalAccessBoundaryRequest(BackOff::Options backoff_options)
       : backoff(backoff_options) {
     pollent =
         grpc_polling_entity_create_from_pollset_set(grpc_pollset_set_create());
@@ -93,10 +92,10 @@ struct RegionalAccessBoundaryRequest
 };
 
 void StartRegionalAccessBoundaryFetch(
-    grpc_core::RefCountedPtr<RegionalAccessBoundaryRequest> req);
+    RefCountedPtr<RegionalAccessBoundaryRequest> req);
 
 void RetryFetchRegionalAccessBoundary(void* arg, grpc_error_handle error) {
-  grpc_core::RefCountedPtr<RegionalAccessBoundaryRequest> req(
+  RefCountedPtr<RegionalAccessBoundaryRequest> req(
       static_cast<RegionalAccessBoundaryRequest*>(arg));
   if (error.ok()) {
     StartRegionalAccessBoundaryFetch(std::move(req));
@@ -119,31 +118,31 @@ void RetryFetchRegionalAccessBoundary(void* arg, grpc_error_handle error) {
 }
 
 void OnRegionalAccessBoundaryResponse(void* arg, grpc_error_handle error) {
-  grpc_core::RefCountedPtr<RegionalAccessBoundaryRequest> req(
+  RefCountedPtr<RegionalAccessBoundaryRequest> req(
       static_cast<RegionalAccessBoundaryRequest*>(arg));
 
-  ::grpc_call_credentials* creds = req->creds.get();
+  grpc_call_credentials* creds = req->creds.get();
   bool should_retry = false;
   bool success = false;
 
   if (error.ok() && req->response.status == 200) {
-    auto json = grpc_core::JsonParse(req->response.body);
+    auto json = JsonParse(req->response.body);
 
-    if (json.ok() && json->type() == grpc_core::Json::Type::kObject) {
+    if (json.ok() && json->type() == Json::Type::kObject) {
       std::string encoded_locations;
       std::vector<std::string> locations;
 
       auto it_encoded = json->object().find("encodedLocations");
       if (it_encoded != json->object().end() &&
-          it_encoded->second.type() == grpc_core::Json::Type::kString) {
+          it_encoded->second.type() == Json::Type::kString) {
         encoded_locations = it_encoded->second.string();
       }
 
       auto it_locations = json->object().find("locations");
       if (it_locations != json->object().end() &&
-          it_locations->second.type() == grpc_core::Json::Type::kArray) {
+          it_locations->second.type() == Json::Type::kArray) {
         for (const auto& loc : it_locations->second.array()) {
-          if (loc.type() == grpc_core::Json::Type::kString) {
+          if (loc.type() == Json::Type::kString) {
             locations.push_back(loc.string());
           }
         }
@@ -154,8 +153,7 @@ void OnRegionalAccessBoundaryResponse(void* arg, grpc_error_handle error) {
             GRPC_REGIONAL_ACCESS_BOUNDARY_CACHE_DURATION_SECS, GPR_TIMESPAN);
         gpr_mu_lock(&creds->regional_access_boundary_cache_mu);
         creds->regional_access_boundary_cache = {
-            std::move(encoded_locations),
-            std::move(locations),
+            std::move(encoded_locations), std::move(locations),
             gpr_time_add(gpr_now(GPR_CLOCK_REALTIME), ttl)};
 
         // On success, reset the cooldown multiplier.
@@ -176,9 +174,9 @@ void OnRegionalAccessBoundaryResponse(void* arg, grpc_error_handle error) {
 
   if (should_retry) {
     req->num_retries++;
-    grpc_core::Duration delay = req->backoff.NextAttemptDelay();
+    Duration delay = req->backoff.NextAttemptDelay();
     req->Ref().release();
-    grpc_timer_init(&req->retry_timer, grpc_core::Timestamp::Now() + delay,
+    grpc_timer_init(&req->retry_timer, Timestamp::Now() + delay,
                     GRPC_CLOSURE_INIT(&req->retry_callback,
                                       RetryFetchRegionalAccessBoundary,
                                       req.get(), grpc_schedule_on_exec_ctx));
@@ -189,7 +187,7 @@ void OnRegionalAccessBoundaryResponse(void* arg, grpc_error_handle error) {
     if (!success) {
       LOG(ERROR) << "Regional access boundary request failed. Entering "
                     "cooldown period. Error: "
-                 << grpc_core::StatusToString(error)
+                 << StatusToString(error)
                  << ", HTTP Status: " << req->response.status << ", Body: "
                  << absl::string_view(req->response.body,
                                       req->response.body_length);
@@ -211,7 +209,7 @@ void OnRegionalAccessBoundaryResponse(void* arg, grpc_error_handle error) {
 }
 
 void StartRegionalAccessBoundaryFetch(
-    grpc_core::RefCountedPtr<RegionalAccessBoundaryRequest> req) {
+    RefCountedPtr<RegionalAccessBoundaryRequest> req) {
   grpc_http_request request;
   memset(&request, 0, sizeof(request));
 
@@ -229,16 +227,15 @@ void StartRegionalAccessBoundaryFetch(
   grpc_http_response_destroy(&req->response);
   req->response = grpc_http_response();
 
-  req->http_request = grpc_core::HttpRequest::Get(
+  req->http_request = HttpRequest::Get(
       req->uri,
       nullptr,  // channel_args
-      &req->pollent, &request,
-      grpc_core::Timestamp::Now() + grpc_core::Duration::Seconds(60),
+      &req->pollent, &request, Timestamp::Now() + Duration::Seconds(60),
       GRPC_CLOSURE_CREATE(OnRegionalAccessBoundaryResponse, req.get(),
                           grpc_schedule_on_exec_ctx),
       &req->response,
-      grpc_core::RefCountedPtr<grpc_channel_credentials>(
-          grpc_core::CreateHttpRequestSSLCredentials()));
+      RefCountedPtr<grpc_channel_credentials>(
+          CreateHttpRequestSSLCredentials()));
   gpr_mu_lock(&req->creds->regional_access_boundary_cache_mu);
   req->creds->regional_access_boundary_fetch_in_flight = true;
   gpr_mu_unlock(&req->creds->regional_access_boundary_cache_mu);
@@ -249,19 +246,18 @@ void StartRegionalAccessBoundaryFetch(
   gpr_free(value);
 }
 
-grpc_core::ArenaPromise<absl::StatusOr<grpc_core::ClientMetadataHandle>>
-FetchRegionalAccessBoundary(
-    grpc_core::RefCountedPtr<grpc_call_credentials> creds,
-    grpc_core::ClientMetadataHandle initial_metadata) {
-  if (!grpc_core::IsRegionalAccessBoundaryLookupEnabled()) {
-    return grpc_core::Immediate(std::move(initial_metadata));
+ArenaPromise<absl::StatusOr<ClientMetadataHandle>> FetchRegionalAccessBoundary(
+    RefCountedPtr<grpc_call_credentials> creds,
+    ClientMetadataHandle initial_metadata) {
+  if (!IsRegionalAccessBoundaryLookupEnabled()) {
+    return Immediate(std::move(initial_metadata));
   }
 
-  auto authority = initial_metadata->get_pointer(grpc_core::HttpAuthorityMetadata())
-                       ->as_string_view();
-  if (authority.find(kRegionalEndpoint) != absl::string_view::npos ||
-      authority.find("googleapis.com") == absl::string_view::npos) {
-    return grpc_core::Immediate(std::move(initial_metadata));
+  auto authority =
+      initial_metadata->get_pointer(HttpAuthorityMetadata())->as_string_view();
+  if (absl::StrContains(authority, kRegionalEndpoint) ||
+      !absl::StrContains(authority, "googleapis.com")) {
+    return Immediate(std::move(initial_metadata));
   }
 
   {
@@ -271,39 +267,39 @@ FetchRegionalAccessBoundary(
     if (hasValidCache) {
       initial_metadata->Append(
           GRPC_ALLOWED_LOCATIONS_KEY,
-          grpc_core::Slice::FromCopiedString(
+          Slice::FromCopiedString(
               creds->regional_access_boundary_cache->encoded_locations),
-          [](absl::string_view, const grpc_core::Slice&) { abort(); });
+          [](absl::string_view, const Slice&) { abort(); });
     }
     if (hasValidCache || creds->regional_access_boundary_fetch_in_flight ||
         gpr_time_cmp(gpr_now(GPR_CLOCK_REALTIME),
                      creds->regional_access_boundary_cooldown_deadline) < 0) {
       gpr_mu_unlock(&creds->regional_access_boundary_cache_mu);
-      return grpc_core::Immediate(std::move(initial_metadata));
+      return Immediate(std::move(initial_metadata));
     }
     gpr_mu_unlock(&creds->regional_access_boundary_cache_mu);
   }
 
   auto url = creds->build_regional_access_boundary_url();
 
-  auto request_uri = grpc_core::URI::Parse(url);
+  auto request_uri = URI::Parse(url);
 
   if (!request_uri.ok()) {
     LOG(ERROR) << "Unable to create URI for the credential type: "
                << creds->debug_string();
-    return grpc_core::Immediate(std::move(initial_metadata));
+    return Immediate(std::move(initial_metadata));
   }
 
-  auto req = grpc_core::MakeRefCounted<RegionalAccessBoundaryRequest>(
-      grpc_core::BackOff::Options()
-          .set_initial_backoff(grpc_core::Duration::Seconds(1))
+  auto req = MakeRefCounted<RegionalAccessBoundaryRequest>(
+      BackOff::Options()
+          .set_initial_backoff(Duration::Seconds(1))
           .set_multiplier(2.0)
           .set_jitter(0.2)
-          .set_max_backoff(grpc_core::Duration::Seconds(60)));
+          .set_max_backoff(Duration::Seconds(60)));
   req->creds = std::move(creds);
   req->uri = std::move(*request_uri);
 
-  auto* caller_pollent = grpc_core::MaybeGetContext<grpc_polling_entity>();
+  auto* caller_pollent = MaybeGetContext<grpc_polling_entity>();
   if (caller_pollent != nullptr) {
     grpc_polling_entity_add_to_pollset_set(
         caller_pollent, grpc_polling_entity_pollset_set(&req->pollent));
@@ -315,11 +311,11 @@ FetchRegionalAccessBoundary(
   if (auth_val.has_value()) {
     req->access_token = std::string(*auth_val);
   } else {
-    return grpc_core::Immediate(std::move(initial_metadata));
+    return Immediate(std::move(initial_metadata));
   }
 
   StartRegionalAccessBoundaryFetch(req);
 
-  return grpc_core::Immediate(std::move(initial_metadata));
+  return Immediate(std::move(initial_metadata));
 }
 }  // namespace grpc_core
