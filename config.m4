@@ -106,6 +106,7 @@ if test "$PHP_GRPC" != "no"; then
     src/core/credentials/call/jwt_util.cc \
     src/core/credentials/call/oauth2/oauth2_credentials.cc \
     src/core/credentials/call/plugin/plugin_credentials.cc \
+    src/core/credentials/call/regional_access_boundary_util.cc \
     src/core/credentials/call/token_fetcher/token_fetcher_credentials.cc \
     src/core/credentials/transport/alts/alts_credentials.cc \
     src/core/credentials/transport/alts/alts_security_connector.cc \
@@ -965,6 +966,7 @@ if test "$PHP_GRPC" != "no"; then
     src/core/xds/xds_client/xds_backend_metric_propagation.cc \
     src/core/xds/xds_client/xds_bootstrap.cc \
     src/core/xds/xds_client/xds_client.cc \
+    src/cpp/client/global_callback_hook.cc \
     src/php/ext/grpc/byte_buffer.c \
     src/php/ext/grpc/call.c \
     src/php/ext/grpc/call_credentials.c \
@@ -1706,6 +1708,7 @@ if test "$PHP_GRPC" != "no"; then
   PHP_ADD_BUILD_DIR($ext_builddir/src/core/util/windows)
   PHP_ADD_BUILD_DIR($ext_builddir/src/core/xds/grpc)
   PHP_ADD_BUILD_DIR($ext_builddir/src/core/xds/xds_client)
+  PHP_ADD_BUILD_DIR($ext_builddir/src/cpp/client)
   PHP_ADD_BUILD_DIR($ext_builddir/src/php/ext/grpc)
   PHP_ADD_BUILD_DIR($ext_builddir/third_party/abseil-cpp/absl/base)
   PHP_ADD_BUILD_DIR($ext_builddir/third_party/abseil-cpp/absl/base/internal)
