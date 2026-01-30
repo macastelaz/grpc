@@ -807,6 +807,143 @@ int httpcli_put_should_not_be_called(const grpc_http_request* /*request*/,
   return 1;
 }
 
+int compute_engine_httpcli_get_success_with_rab_override(
+    const grpc_http_request* request, const URI& uri, Timestamp deadline,
+    grpc_closure* on_done, grpc_http_response* response) {
+  if (uri.authority() == "metadata.google.internal.") {
+    grpc_http_header* headers =
+        static_cast<grpc_http_header*>(gpr_malloc(sizeof(*headers) * 1));
+    headers[0].key = gpr_strdup("Metadata-Flavor");
+    headers[0].value = gpr_strdup("Google");
+    ASSERT_EQ(request->hdr_count, 1);
+    EXPECT_EQ(absl::string_view(request->hdrs[0].key), "Metadata-Flavor");
+    EXPECT_EQ(absl::string_view(request->hdrs[0].value), "Google");
+
+    if (uri.path() ==
+        "/computeMetadata/v1/instance/service-accounts/default/email") {
+      *response = http_response(200, "test-sa@example.com");
+      ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
+      return 1;
+    }
+    if (uri.path() ==
+        "/computeMetadata/v1/instance/service-accounts/default/token") {
+      *response = http_response(200, valid_oauth2_json_response);
+      ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
+      return 1;
+    }
+  }
+
+  if (uri.authority() == "iamcredentials.googleapis.com" &&
+      uri.path() ==
+          "/v1/projects/-/serviceAccounts/test-sa@example.com/"
+          "allowedLocations") {
+    *response = http_response(200, "{\"encodedLocations\": \"rab-zone\"}");
+    ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
+    return 1;
+  }
+
+  LOG(ERROR) << "Unexpected GET request: " << uri.ToString();
+  return 0;
+}
+
+TEST_F(CredentialsTest, TestComputeEngineCredsWithRegionalAccessBoundary) {
+  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  ExecCtx exec_ctx;
+  std::string emd =
+      "authorization: Bearer ya29.AHES6ZRN3-HlhAPya30GnW_bHSb_, "
+      "x-allowed-locations: rab-zone";
+  const char expected_creds_debug_string[] =
+      "GoogleComputeEngineTokenFetcherCredentials{"
+      "OAuth2TokenFetcherCredentials}";
+  grpc_call_credentials* creds =
+      grpc_google_compute_engine_credentials_create(nullptr);
+  // Check security level.
+  GRPC_CHECK_EQ(creds->min_security_level(), GRPC_PRIVACY_AND_INTEGRITY);
+
+  // First request: should trigger email fetch, rab fetch, and token fetch.
+  auto state = RequestMetadataState::NewInstance(absl::OkStatus(), emd);
+  HttpRequest::SetOverride(compute_engine_httpcli_get_success_with_rab_override,
+                           httpcli_post_should_not_be_called,
+                           httpcli_put_should_not_be_called);
+  state->RunRequestMetadataTest(creds, kTestUrlScheme, kTestAuthority,
+                                kTestPath);
+  ExecCtx::Get()->Flush();
+
+  GRPC_CHECK_EQ(
+      strcmp(creds->debug_string().c_str(), expected_creds_debug_string), 0);
+  creds->Unref();
+  HttpRequest::SetOverride(nullptr, nullptr, nullptr);
+  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+}
+
+int compute_engine_httpcli_get_success_with_rab_override(
+    const grpc_http_request* request, const URI& uri, Timestamp deadline,
+    grpc_closure* on_done, grpc_http_response* response) {
+  if (uri.authority() == "metadata.google.internal.") {
+    grpc_http_header* headers =
+        static_cast<grpc_http_header*>(gpr_malloc(sizeof(*headers) * 1));
+    headers[0].key = gpr_strdup("Metadata-Flavor");
+    headers[0].value = gpr_strdup("Google");
+    ASSERT_EQ(request->hdr_count, 1);
+    EXPECT_EQ(absl::string_view(request->hdrs[0].key), "Metadata-Flavor");
+    EXPECT_EQ(absl::string_view(request->hdrs[0].value), "Google");
+
+    if (uri.path() ==
+        "/computeMetadata/v1/instance/service-accounts/default/email") {
+      *response = http_response(200, "test-sa@example.com");
+      ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
+      return 1;
+    }
+    if (uri.path() ==
+        "/computeMetadata/v1/instance/service-accounts/default/token") {
+      *response = http_response(200, valid_oauth2_json_response);
+      ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
+      return 1;
+    }
+  }
+
+  if (uri.authority() == "iamcredentials.googleapis.com" &&
+      uri.path() == "/v1/projects/-/serviceAccounts/test-sa@example.com/"
+                    "allowedLocations") {
+    *response = http_response(200, "{\"encodedLocations\": \"rab-zone\"}");
+    ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
+    return 1;
+  }
+
+  LOG(ERROR) << "Unexpected GET request: " << uri.ToString();
+  return 0;
+}
+
+TEST_F(CredentialsTest, TestComputeEngineCredsWithRegionalAccessBoundary) {
+  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  ExecCtx exec_ctx;
+  std::string emd =
+      "authorization: Bearer ya29.AHES6ZRN3-HlhAPya30GnW_bHSb_, "
+      "x-allowed-locations: rab-zone";
+  const char expected_creds_debug_string[] =
+      "GoogleComputeEngineTokenFetcherCredentials{"
+      "OAuth2TokenFetcherCredentials}";
+  grpc_call_credentials* creds =
+      grpc_google_compute_engine_credentials_create(nullptr);
+  // Check security level.
+  GRPC_CHECK_EQ(creds->min_security_level(), GRPC_PRIVACY_AND_INTEGRITY);
+
+  // First request: should trigger email fetch, rab fetch, and token fetch.
+  auto state = RequestMetadataState::NewInstance(absl::OkStatus(), emd);
+  HttpRequest::SetOverride(compute_engine_httpcli_get_success_with_rab_override,
+                           httpcli_post_should_not_be_called,
+                           httpcli_put_should_not_be_called);
+  state->RunRequestMetadataTest(creds, kTestUrlScheme, kTestAuthority,
+                                kTestPath);
+  ExecCtx::Get()->Flush();
+
+  GRPC_CHECK_EQ(
+      strcmp(creds->debug_string().c_str(), expected_creds_debug_string), 0);
+  creds->Unref();
+  HttpRequest::SetOverride(nullptr, nullptr, nullptr);
+  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+}
+
 TEST_F(CredentialsTest, TestComputeEngineCredsSuccess) {
   ExecCtx exec_ctx;
   std::string emd = "authorization: Bearer ya29.AHES6ZRN3-HlhAPya30GnW_bHSb_";
@@ -1902,8 +2039,8 @@ TEST_F(CredentialsTest,
         return 0;
       },
       [](const grpc_http_request* request, const URI& uri,
-         absl::string_view body, Timestamp,
-         grpc_closure* on_done, grpc_http_response* response) {
+         absl::string_view body, Timestamp, grpc_closure* on_done,
+         grpc_http_response* response) {
         // POST Override: Exchange token
         if (uri.path() == "/token") {
           *response = http_response(200, valid_oauth2_json_response);
