@@ -76,9 +76,9 @@ class ExternalAccountCredentials : public TokenFetcherCredentials {
       std::shared_ptr<grpc_event_engine::experimental::EventEngine>
           event_engine = nullptr);
 
-  grpc_core::ArenaPromise<absl::StatusOr<grpc_core::ClientMetadataHandle>>
-  GetRequestMetadata(grpc_core::ClientMetadataHandle initial_metadata,
-                     const GetRequestMetadataArgs* args) override;
+  ArenaPromise<absl::StatusOr<ClientMetadataHandle>> GetRequestMetadata(
+      ClientMetadataHandle initial_metadata,
+      const GetRequestMetadataArgs* args) override;
 
   std::string build_regional_access_boundary_url() override {
     if (!options_.workforce_pool_id.empty()) {
