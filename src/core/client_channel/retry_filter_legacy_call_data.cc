@@ -22,12 +22,12 @@
 
 #include "src/core/call/metadata_batch.h"
 #include "src/core/call/security_context.h"
-#include "src/core/client_channel/client_channel_filter.h"
-#include "src/core/credentials/call/call_creds_util.h"
 #include "src/core/call/status_util.h"
+#include "src/core/client_channel/client_channel_filter.h"
 #include "src/core/client_channel/client_channel_internal.h"
 #include "src/core/client_channel/retry_service_config.h"
 #include "src/core/client_channel/retry_throttle.h"
+#include "src/core/credentials/call/call_creds_util.h"
 #include "src/core/lib/channel/channel_stack.h"
 #include "src/core/lib/debug/trace.h"
 #include "src/core/lib/iomgr/call_combiner.h"
@@ -1137,7 +1137,8 @@ void RetryFilter::LegacyCallData::CallAttempt::BatchData::
     // Ignore the retry policy and do a transparent retry if we encounter
     // a stale regional access boundary as we will invalidate the cache
     // and will not see the same stale error on retry.
-    if (grpc_core::IsStaleRegionalAccessBoundaryError(status, md_batch->get_pointer(GrpcMessageMetadata()))) {
+    if (IsStaleRegionalAccessBoundaryError(
+            status, md_batch->get_pointer(GrpcMessageMetadata()))) {
       retry = kTransparentRetry;
     }
 

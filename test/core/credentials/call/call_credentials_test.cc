@@ -847,7 +847,7 @@ int compute_engine_httpcli_get_success_with_rab_override(
 }
 
 TEST_F(CredentialsTest, TestComputeEngineCredsWithRegionalAccessBoundary) {
-  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
   ExecCtx exec_ctx;
   std::string emd =
       "authorization: Bearer ya29.AHES6ZRN3-HlhAPya30GnW_bHSb_, "
@@ -873,7 +873,7 @@ TEST_F(CredentialsTest, TestComputeEngineCredsWithRegionalAccessBoundary) {
       strcmp(creds->debug_string().c_str(), expected_creds_debug_string), 0);
   creds->Unref();
   HttpRequest::SetOverride(nullptr, nullptr, nullptr);
-  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+  UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 int compute_engine_httpcli_get_success_with_rab_override(
@@ -903,8 +903,9 @@ int compute_engine_httpcli_get_success_with_rab_override(
   }
 
   if (uri.authority() == "iamcredentials.googleapis.com" &&
-      uri.path() == "/v1/projects/-/serviceAccounts/test-sa@example.com/"
-                    "allowedLocations") {
+      uri.path() ==
+          "/v1/projects/-/serviceAccounts/test-sa@example.com/"
+          "allowedLocations") {
     *response = http_response(200, "{\"encodedLocations\": \"rab-zone\"}");
     ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
     return 1;
@@ -915,7 +916,7 @@ int compute_engine_httpcli_get_success_with_rab_override(
 }
 
 TEST_F(CredentialsTest, TestComputeEngineCredsWithRegionalAccessBoundary) {
-  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
   ExecCtx exec_ctx;
   std::string emd =
       "authorization: Bearer ya29.AHES6ZRN3-HlhAPya30GnW_bHSb_, "
@@ -941,7 +942,7 @@ TEST_F(CredentialsTest, TestComputeEngineCredsWithRegionalAccessBoundary) {
       strcmp(creds->debug_string().c_str(), expected_creds_debug_string), 0);
   creds->Unref();
   HttpRequest::SetOverride(nullptr, nullptr, nullptr);
-  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+  UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 TEST_F(CredentialsTest, TestComputeEngineCredsSuccess) {
@@ -1718,7 +1719,7 @@ TEST_F(CredentialsTest, TestJwtCredsSigningFailure) {
 }
 
 TEST_F(CredentialsTest, TestJwtCredsWithRegionalAccessBoundary) {
-  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
   const char expected_creds_debug_string_prefix[] =
       "JWTAccessCredentials{ExpirationTime:";
 
@@ -1752,11 +1753,11 @@ TEST_F(CredentialsTest, TestJwtCredsWithRegionalAccessBoundary) {
   gpr_free(json_key_string);
   grpc_jwt_encode_and_sign_set_override(nullptr);
   HttpRequest::SetOverride(nullptr, nullptr, nullptr);
-  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+  UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 TEST_F(CredentialsTest, TestJwtCredsWithFullRegionalAccessBoundary) {
-  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
   const char expected_creds_debug_string_prefix[] =
       "JWTAccessCredentials{ExpirationTime:";
 
@@ -1797,7 +1798,7 @@ TEST_F(CredentialsTest, TestJwtCredsWithFullRegionalAccessBoundary) {
   gpr_free(json_key_string);
   grpc_jwt_encode_and_sign_set_override(nullptr);
   HttpRequest::SetOverride(nullptr, nullptr, nullptr);
-  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+  UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 int regional_access_boundary_httpcli_get_success(
@@ -1811,7 +1812,7 @@ int regional_access_boundary_httpcli_get_success(
 }
 
 TEST_F(CredentialsTest, TestJwtCredsFetchRegionalAccessBoundary) {
-  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
 
   char* json_key_string = test_json_key_str();
   ExecCtx exec_ctx;
@@ -1851,7 +1852,7 @@ TEST_F(CredentialsTest, TestJwtCredsFetchRegionalAccessBoundary) {
   gpr_free(json_key_string);
   grpc_jwt_encode_and_sign_set_override(nullptr);
   HttpRequest::SetOverride(nullptr, nullptr, nullptr);
-  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+  UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 void set_google_default_creds_env_var_with_file_contents(
@@ -1998,7 +1999,7 @@ TEST_F(CredentialsTest,
 
 TEST_F(CredentialsTest,
        TestExternalAccountCredentialsWithRegionalAccessBoundary) {
-  grpc_core::SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
+  SetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED", "true");
 
   std::string json_options =
       "{\"type\":\"external_account\",\"audience\":\"audience\",\"subject_"
@@ -2062,7 +2063,7 @@ TEST_F(CredentialsTest,
   ExecCtx::Get()->Flush();
   creds->Unref();
   HttpRequest::SetOverride(nullptr, nullptr, nullptr);
-  grpc_core::UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
+  UnsetEnv("GOOGLE_AUTH_REGIONAL_ACCESS_BOUNDARY_ENABLED");
 }
 
 int default_creds_metadata_server_detection_httpcli_get_success_override(
