@@ -444,8 +444,9 @@ grpc_google_compute_engine_credentials_create_with_regional_access_boundary(
   if (options != nullptr && options->alts_hard_bound) {
     query_params.push_back({"transport", "alts"});
   }
-  auto creds = grpc_core::MakeRefCounted<
-      grpc_compute_engine_token_fetcher_credentials>(std::move(query_params));
+  auto creds =
+      grpc_core::MakeRefCounted<grpc_compute_engine_token_fetcher_credentials>(
+          std::move(query_params));
   if (regional_access_boundary != nullptr &&
       regional_access_boundary[0] != '\0') {
     auto json = grpc_core::JsonParse(regional_access_boundary);
@@ -472,8 +473,7 @@ grpc_google_compute_engine_credentials_create_with_regional_access_boundary(
         gpr_mu_lock(&creds->regional_access_boundary_cache_mu);
         creds->regional_access_boundary_cache = {
             std::move(encoded_locations), std::move(locations),
-            gpr_time_add(gpr_now(GPR_CLOCK_REALTIME), ttl)
-        };
+            gpr_time_add(gpr_now(GPR_CLOCK_REALTIME), ttl)};
         gpr_mu_unlock(&creds->regional_access_boundary_cache_mu);
       }
     } else {
