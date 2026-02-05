@@ -32,6 +32,7 @@
 
 #include "src/core/call/metadata_batch.h"
 #include "src/core/credentials/call/call_creds_util.h"
+#include "src/core/credentials/call/regional_access_boundary_fetcher.h"
 #include "src/core/lib/debug/trace.h"
 #include "src/core/lib/iomgr/exec_ctx.h"
 #include "src/core/lib/promise/promise.h"
@@ -40,7 +41,6 @@
 #include "src/core/util/json/json_reader.h"
 #include "src/core/util/json/json_writer.h"
 #include "src/core/util/ref_counted_ptr.h"
-#include "src/core/credentials/call/regional_access_boundary_fetcher.h"
 #include "src/core/util/uri.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
@@ -108,11 +108,15 @@ grpc_service_account_jwt_access_credentials::GetRequestMetadata(
   initial_metadata->Append(
       GRPC_AUTHORIZATION_METADATA_KEY, std::move(*jwt_value),
       [](absl::string_view, const grpc_core::Slice&) { abort(); });
-  return regional_access_boundary_fetcher_->Fetch(absl::StrFormat("https://iamcredentials.googleapis.com/v1/projects/-/"
-                     "serviceAccounts/%s/allowedLocations", key_.client_email), std::move(initial_metadata));
+  return regional_access_boundary_fetcher_->Fetch(
+      absl::StrFormat("https://iamcredentials.googleapis.com/v1/projects/-/"
+                      "serviceAccounts/%s/allowedLocations",
+                      key_.client_email),
+      std::move(initial_metadata));
 }
 
-void grpc_service_account_jwt_access_credentials::InvalidateRegionalAccessBoundaryCache() {
+void grpc_service_account_jwt_access_credentials::
+    InvalidateRegionalAccessBoundaryCache() {
   regional_access_boundary_fetcher_->InvalidateCache();
 }
 
@@ -121,7 +125,8 @@ grpc_service_account_jwt_access_credentials::
                                                 gpr_timespec token_lifetime)
     : key_(key),
       regional_access_boundary_fetcher_(
-          grpc_core::MakeRefCounted<grpc_core::RegionalAccessBoundaryFetcher>()) {
+          grpc_core::MakeRefCounted<
+              grpc_core::RegionalAccessBoundaryFetcher>()) {
   gpr_timespec max_token_lifetime = grpc_max_auth_token_lifetime();
   if (gpr_time_cmp(token_lifetime, max_token_lifetime) > 0) {
     VLOG(2) << "Cropping token lifetime to maximum allowed value ("

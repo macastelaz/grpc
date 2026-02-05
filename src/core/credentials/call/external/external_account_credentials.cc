@@ -29,11 +29,11 @@
 #include <memory>
 #include <utility>
 
-#include "src/core/credentials/call/regional_access_boundary_fetcher.h"
 #include "src/core/credentials/call/external/aws_external_account_credentials.h"
 #include "src/core/credentials/call/external/file_external_account_credentials.h"
 #include "src/core/credentials/call/external/url_external_account_credentials.h"
 #include "src/core/credentials/call/json_util.h"
+#include "src/core/credentials/call/regional_access_boundary_fetcher.h"
 #include "src/core/credentials/transport/transport_credentials.h"
 #include "src/core/lib/transport/status_conversion.h"
 #include "src/core/util/grpc_check.h"
@@ -85,17 +85,18 @@ ExternalAccountCredentials::NoOpFetchBody::NoOpFetchBody(
   });
 }
 
-grpc_core::ArenaPromise<absl::StatusOr<grpc_core::ClientMetadataHandle>>
+ArenaPromise<absl::StatusOr<ClientMetadataHandle>>
 ExternalAccountCredentials::GetRequestMetadata(
-    grpc_core::ClientMetadataHandle initial_metadata,
+    ClientMetadataHandle initial_metadata,
     const grpc_call_credentials::GetRequestMetadataArgs* args) {
   return TrySeq(TokenFetcherCredentials::GetRequestMetadata(
                     std::move(initial_metadata), args),
                 [this](ClientMetadataHandle updated_metadata) {
-                  return regional_access_boundary_fetcher_.Fetch(build_regional_access_boundary_url(), std::move(updated_metadata));
+                  return regional_access_boundary_fetcher_.Fetch(
+                      build_regional_access_boundary_url(),
+                      std::move(updated_metadata));
                 });
 }
-
 
 //
 // ExternalAccountCredentials::HttpFetchBody
@@ -477,9 +478,7 @@ bool MatchWorkloadIdentityPoolAudience(absl::string_view audience,
   auto provider_pos = audience.find("/providers/");
   if (provider_pos == absl::string_view::npos) return false;
   *pool_id = std::string(audience.substr(0, provider_pos));
-  if (pool_id->empty()) return false;
-
-  return true;
+  return !pool_id->empty();
 }
 
 // Expression to match:
