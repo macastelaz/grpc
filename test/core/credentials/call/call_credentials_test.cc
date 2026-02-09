@@ -1514,7 +1514,8 @@ int httpcli_get_valid_json_regional_access_boundary(
     Timestamp /*deadline*/, grpc_closure* on_done,
     grpc_http_response* response) {
   *response = http_response(
-      200, "{\"encodedLocations\": \"us-west1\", \"locations\": [\"us-west1\"]}");
+      200,
+      "{\"encodedLocations\": \"us-west1\", \"locations\": [\"us-west1\"]}");
   ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
   return 1;
 }
