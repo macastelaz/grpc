@@ -4954,6 +4954,68 @@ TEST_F(ExternalAccountCredentialsTest, SuccessWithRab500_NoHeader) {
       options, std::vector<std::string>(), event_engine_);
   
   auto state = RequestMetadataState::NewInstance(
+TEST_F(CredentialsTest, TestComputeEngineCredsWithRabSuccess) {
+  ExecCtx exec_ctx;
+  std::string emd = "authorization: Bearer ya29.AHES6ZRN3-HlhAPya30GnW_bHSb_, x-allowed-locations: 0x08";
+  grpc_call_credentials* creds =
+      grpc_google_compute_engine_credentials_create(nullptr);
+  
+  auto state = RequestMetadataState::NewInstance(absl::OkStatus(), emd);
+  HttpRequest::SetOverride(compute_engine_with_rab_httpcli_get_success_override,
+                           httpcli_post_should_not_be_called,
+                           httpcli_put_should_not_be_called);
+  state->RunRequestMetadataTest(creds, kTestUrlScheme, kTestAuthority,
+                                kTestPath);
+  creds->Unref();
+  HttpRequest::SetOverride(nullptr, nullptr, nullptr);
+}
+
+TEST_F(CredentialsTest, TestComputeEngineCredsWithRab401) {
+  ExecCtx exec_ctx;
+  std::string emd = "authorization: Bearer ya29.AHES6ZRN3-HlhAPya30GnW_bHSb_";
+  grpc_call_credentials* creds =
+      grpc_google_compute_engine_credentials_create(nullptr);
+  
+  // Note: 401 returns empty locations, so x-allowed-locations is absent
+  auto state = RequestMetadataState::NewInstance(absl::OkStatus(), emd);
+  HttpRequest::SetOverride(compute_engine_with_rab_401_httpcli_get_override,
+                           httpcli_post_should_not_be_called,
+                           httpcli_put_should_not_be_called);
+  state->RunRequestMetadataTest(creds, kTestUrlScheme, kTestAuthority,
+                                kTestPath);
+  HttpRequest::SetOverride(nullptr, nullptr, nullptr);
+}
+
+static std::atomic<int> g_email_fetch_count{0};
+int compute_engine_concurrent_fetch_override(
+    const grpc_http_request* request, const URI& uri, Timestamp deadline,
+    grpc_closure* on_done, grpc_http_response* response) {
+  if (uri.path().find("email") != std::string::npos) {
+    g_email_fetch_count++;
+  }
+  return compute_engine_with_rab_httpcli_get_success_override(request, uri, deadline, on_done, response);
+}
+
+TEST_F(CredentialsTest, TestComputeEngineCredsConcurrentFetch) {
+  ExecCtx exec_ctx;
+  g_email_fetch_count = 0;
+  std::string emd = "authorization: Bearer ya29.AHES6ZRN3-HlhAPya30GnW_bHSb_, x-allowed-locations: 0x08";
+  grpc_call_credentials* creds =
+      grpc_google_compute_engine_credentials_create(nullptr);
+  
+  auto state1 = RequestMetadataState::NewInstance(absl::OkStatus(), emd);
+  auto state2 = RequestMetadataState::NewInstance(absl::OkStatus(), emd);
+  HttpRequest::SetOverride(compute_engine_concurrent_fetch_override,
+                           httpcli_post_should_not_be_called,
+                           httpcli_put_should_not_be_called);
+  state1->RunRequestMetadataTest(creds, kTestUrlScheme, kTestAuthority,
+                                kTestPath);
+  state2->RunRequestMetadataTest(creds, kTestUrlScheme, kTestAuthority,
+                                kTestPath);
+  EXPECT_EQ(g_email_fetch_count, 1);
+  creds->Unref();
+  HttpRequest::SetOverride(nullptr, nullptr, nullptr);
+}
 }  // namespace grpc_core
 
 int main(int argc, char** argv) {
