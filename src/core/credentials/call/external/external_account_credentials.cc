@@ -69,16 +69,16 @@
 
 namespace grpc_core {
 
-grpc_core::ArenaPromise<absl::StatusOr<grpc_core::ClientMetadataHandle>>
+ArenaPromise<absl::StatusOr<ClientMetadataHandle>>
 ExternalAccountCredentials::GetRequestMetadata(
-    grpc_core::ClientMetadataHandle initial_metadata,
+    ClientMetadataHandle initial_metadata,
     const grpc_call_credentials::GetRequestMetadataArgs* args) {
   return TrySeq(TokenFetcherCredentials::GetRequestMetadata(
                     std::move(initial_metadata), args),
                 [this](ClientMetadataHandle updated_metadata) {
                   return regional_access_boundary_fetcher_->Fetch(
-                    build_regional_access_boundary_url(),
-                    std::move(updated_metadata));
+                      build_regional_access_boundary_url(),
+                      std::move(updated_metadata));
                 });
 }
 
@@ -478,9 +478,7 @@ bool MatchWorkloadIdentityPoolAudience(absl::string_view audience,
   auto provider_pos = audience.find("/providers/");
   if (provider_pos == absl::string_view::npos) return false;
   *pool_id = std::string(audience.substr(0, provider_pos));
-  if (pool_id->empty()) return false;
-
-  return true;
+  return !pool_id->empty();
 }
 
 // Expression to match:
@@ -644,7 +642,8 @@ ExternalAccountCredentials::ExternalAccountCredentials(
     std::shared_ptr<grpc_event_engine::experimental::EventEngine> event_engine)
     : TokenFetcherCredentials(std::move(event_engine)),
       options_(std::move(options)),
-      regional_access_boundary_fetcher_(grpc_core::MakeRefCounted<grpc_core::RegionalAccessBoundaryFetcher>()) {
+      regional_access_boundary_fetcher_(
+          MakeRefCounted<RegionalAccessBoundaryFetcher>()) {
   if (scopes.empty()) {
     scopes.push_back(GOOGLE_CLOUD_PLATFORM_DEFAULT_SCOPE);
   }
