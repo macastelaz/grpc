@@ -4813,6 +4813,147 @@ TEST_F(JwtTokenFileCallCredentialsTest, InvalidToken) {
 }
 
 }  // namespace
+TEST_F(ExternalAccountCredentialsTest, SuccessWithWorkforcePoolRab) {
+  ExecCtx exec_ctx;
+  Json credential_source = Json::FromString("");
+  TestExternalAccountCredentials::ServiceAccountImpersonation
+      service_account_impersonation;
+  service_account_impersonation.token_lifetime_seconds = 3600;
+  TestExternalAccountCredentials::Options options = {
+      "external_account",                 // type;
+      "audience",                         // audience;
+      "subject_token_type",               // subject_token_type;
+      "",                                 // service_account_impersonation_url;
+      service_account_impersonation,      // service_account_impersonation;
+      "https://foo.com:5555/token",       // token_url;
+      "https://foo.com:5555/token_info",  // token_info_url;
+      credential_source,                  // credential_source;
+      "quota_project_id",                 // quota_project_id;
+      "client_id",                        // client_id;
+      "client_secret",                    // client_secret;
+      "",                                 // workforce_pool_user_project;
+      "test_workforce_pool",              // workforce_pool_id;
+      "",                                 // workload_pool_project;
+      "",                                 // workload_pool_id;
+  };
+  auto creds = MakeRefCounted<TestExternalAccountCredentials>(
+      options, std::vector<std::string>(), event_engine_);
+  // Check security level.
+  EXPECT_EQ(creds->min_security_level(), GRPC_PRIVACY_AND_INTEGRITY);
+  
+  auto state = RequestMetadataState::NewInstance(
+      absl::OkStatus(), "authorization: Bearer token_exchange_access_token, x-allowed-locations: 0x08");
+  HttpRequest::SetOverride(external_account_creds_httpcli_get_rab_success,
+                           external_account_creds_httpcli_post_success,
+                           httpcli_put_should_not_be_called);
+  state->RunRequestMetadataTest(creds.get(), kTestUrlScheme, kTestAuthority,
+                                kTestPath);
+  event_engine_->TickUntilIdle();
+  HttpRequest::SetOverride(nullptr, nullptr, nullptr);
+}
+
+TEST_F(ExternalAccountCredentialsTest, SuccessWithWorkloadIdentityPoolRab) {
+  ExecCtx exec_ctx;
+  Json credential_source = Json::FromString("");
+  TestExternalAccountCredentials::ServiceAccountImpersonation
+      service_account_impersonation;
+  service_account_impersonation.token_lifetime_seconds = 3600;
+  TestExternalAccountCredentials::Options options = {
+      "external_account",                 // type;
+      "audience",                         // audience;
+      "subject_token_type",               // subject_token_type;
+      "",                                 // service_account_impersonation_url;
+      service_account_impersonation,      // service_account_impersonation;
+      "https://foo.com:5555/token",       // token_url;
+      "https://foo.com:5555/token_info",  // token_info_url;
+      credential_source,                  // credential_source;
+      "quota_project_id",                 // quota_project_id;
+      "client_id",                        // client_id;
+      "client_secret",                    // client_secret;
+      "",                                 // workforce_pool_user_project;
+      "",                                 // workforce_pool_id;
+      "test_project",                     // workload_pool_project;
+      "test_workload_pool",               // workload_pool_id;
+  };
+  auto creds = MakeRefCounted<TestExternalAccountCredentials>(
+      options, std::vector<std::string>(), event_engine_);
+  
+  auto state = RequestMetadataState::NewInstance(
+      absl::OkStatus(), "authorization: Bearer token_exchange_access_token, x-allowed-locations: 0x08");
+  HttpRequest::SetOverride(external_account_creds_httpcli_get_rab_success,
+                           external_account_creds_httpcli_post_success,
+                           httpcli_put_should_not_be_called);
+  state->RunRequestMetadataTest(creds.get(), kTestUrlScheme, kGoogleTestAuthority,
+                                kTestPath);
+  event_engine_->TickUntilIdle();
+  HttpRequest::SetOverride(nullptr, nullptr, nullptr);
+}
+
+TEST_F(ExternalAccountCredentialsTest, SuccessWithRab401) {
+  ExecCtx exec_ctx;
+  Json credential_source = Json::FromString("");
+  TestExternalAccountCredentials::ServiceAccountImpersonation
+      service_account_impersonation;
+  service_account_impersonation.token_lifetime_seconds = 3600;
+  TestExternalAccountCredentials::Options options = {
+      "external_account",                 // type;
+      "audience",                         // audience;
+      "subject_token_type",               // subject_token_type;
+      "",                                 // service_account_impersonation_url;
+      service_account_impersonation,      // service_account_impersonation;
+      "https://foo.com:5555/token",       // token_url;
+      "https://foo.com:5555/token_info",  // token_info_url;
+      credential_source,                  // credential_source;
+      "quota_project_id",                 // quota_project_id;
+      "client_id",                        // client_id;
+      "client_secret",                    // client_secret;
+      "",                                 // workforce_pool_user_project;
+      "test_workforce_pool",              // workforce_pool_id;
+      "",                                 // workload_pool_project;
+      "",                                 // workload_pool_id;
+  };
+  auto creds = MakeRefCounted<TestExternalAccountCredentials>(
+      options, std::vector<std::string>(), event_engine_);
+  
+  // Notice NO x-allowed-locations header because 401 returns empty locations!
+  auto state = RequestMetadataState::NewInstance(
+      absl::OkStatus(), "authorization: Bearer token_exchange_access_token");
+  HttpRequest::SetOverride(external_account_creds_httpcli_get_rab_401,
+                           external_account_creds_httpcli_post_success,
+                           httpcli_put_should_not_be_called);
+  state->RunRequestMetadataTest(creds.get(), kTestUrlScheme, kGoogleTestAuthority,
+                                kTestPath);
+  event_engine_->TickUntilIdle();
+  HttpRequest::SetOverride(nullptr, nullptr, nullptr);
+}
+
+TEST_F(ExternalAccountCredentialsTest, SuccessWithRab500_NoHeader) {
+  ExecCtx exec_ctx;
+  Json credential_source = Json::FromString("");
+  TestExternalAccountCredentials::ServiceAccountImpersonation
+      service_account_impersonation;
+  service_account_impersonation.token_lifetime_seconds = 3600;
+  TestExternalAccountCredentials::Options options = {
+      "external_account",                 // type;
+      "audience",                         // audience;
+      "subject_token_type",               // subject_token_type;
+      "",                                 // service_account_impersonation_url;
+      service_account_impersonation,      // service_account_impersonation;
+      "https://foo.com:5555/token",       // token_url;
+      "https://foo.com:5555/token_info",  // token_info_url;
+      credential_source,                  // credential_source;
+      "quota_project_id",                 // quota_project_id;
+      "client_id",                        // client_id;
+      "client_secret",                    // client_secret;
+      "",                                 // workforce_pool_user_project;
+      "test_workforce_pool",              // workforce_pool_id;
+      "",                                 // workload_pool_project;
+      "",                                 // workload_pool_id;
+  };
+  auto creds = MakeRefCounted<TestExternalAccountCredentials>(
+      options, std::vector<std::string>(), event_engine_);
+  
+  auto state = RequestMetadataState::NewInstance(
 }  // namespace grpc_core
 
 int main(int argc, char** argv) {
