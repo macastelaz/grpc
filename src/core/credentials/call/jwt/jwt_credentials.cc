@@ -104,11 +104,13 @@ grpc_service_account_jwt_access_credentials::GetRequestMetadata(
         absl::UnauthenticatedError("Could not generate JWT."));
   }
 
+  std::string access_token_str(jwt_value->as_string_view());
   initial_metadata->Append(
       GRPC_AUTHORIZATION_METADATA_KEY, std::move(*jwt_value),
       [](absl::string_view, const grpc_core::Slice&) { abort(); });
-  return grpc_core::Immediate(regional_access_boundary_fetcher_->Fetch(build_regional_access_boundary_url(), std::move(initial_metadata)));
-
+  return grpc_core::Immediate(
+    regional_access_boundary_fetcher_->Fetch(
+      build_regional_access_boundary_url(), access_token_str, std::move(initial_metadata)));
 }
 
 grpc_service_account_jwt_access_credentials::

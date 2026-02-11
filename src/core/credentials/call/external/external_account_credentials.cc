@@ -79,8 +79,20 @@ ExternalAccountCredentials::GetRequestMetadata(
              [this](absl::StatusOr<ClientMetadataHandle> updated_metadata)
                  -> absl::StatusOr<ClientMetadataHandle> {
                if (!updated_metadata.ok()) return updated_metadata;
+               
+               std::string access_token;
+               auto auth_val = (*updated_metadata)->GetStringValue(
+                   GRPC_AUTHORIZATION_METADATA_KEY, &access_token);
+
+              if (!auth_val.has_value()) {
+                LOG(WARNING) << "No access token was found in the metadata for this credential " 
+                             << "and therefore the lookup would fail. A lookup will not be attempted.";
+                return updated_metadata;
+              }
+
                return regional_access_boundary_fetcher_->Fetch(
                    build_regional_access_boundary_url(),
+                   access_token,
                    std::move(*updated_metadata));
              });
 }

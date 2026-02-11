@@ -294,8 +294,17 @@ class grpc_compute_engine_token_fetcher_credentials
               [this](absl::StatusOr<grpc_core::ClientMetadataHandle> new_metadata)
                   -> absl::StatusOr<grpc_core::ClientMetadataHandle> {
                 if (!new_metadata.ok()) return new_metadata.status();
+                std::string access_token;
+                auto auth_val = (*new_metadata)->GetStringValue(
+                    GRPC_AUTHORIZATION_METADATA_KEY, &access_token);
+                if (!auth_val.has_value()) {
+                  LOG(WARNING) << "No access token was found in the metadata for this credential " 
+                              << "and therefore the lookup would fail. A lookup will not be attempted.";
+                  return new_metadata;
+                }
                 return regional_access_boundary_fetcher_->Fetch(
                     build_regional_access_boundary_url(),
+                    access_token,
                     std::move(*new_metadata));
               });
         });

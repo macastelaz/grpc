@@ -239,6 +239,7 @@ void RegionalAccessBoundaryFetcher::RetryFetchRegionalAccessBoundary(
 
 ClientMetadataHandle RegionalAccessBoundaryFetcher::Fetch(
     std::string lookup_url,
+    std::string access_token,
     ClientMetadataHandle initial_metadata) {
   auto authority_ptr = initial_metadata->get_pointer(HttpAuthorityMetadata());
   if (authority_ptr == nullptr) {
@@ -251,21 +252,18 @@ ClientMetadataHandle RegionalAccessBoundaryFetcher::Fetch(
       authority.find(kGoogleApisEndpoint) == std::string_view::npos) {
     return initial_metadata;
   }
+  if (lookup_url.empty()) {
+    // If we have an empty lookup URL, we cannot fetch the regional access boundary.
+    // This can happen if the credential does not have enough information to construct
+    // the URL, such as a missing workforce/workload pool ID or service account email.
+    return initial_metadata;
+  }
 
   auto request_uri = URI::Parse(lookup_url);
 
   if (!request_uri.ok()) {
     LOG(ERROR) << "Unable to create URI for the lookup URL: "
                << lookup_url;
-    return initial_metadata;
-  }
-
-  std::string access_token;
-  auto auth_val = initial_metadata->GetStringValue(
-      GRPC_AUTHORIZATION_METADATA_KEY, &access_token);
-  if (!auth_val.has_value()) {
-    LOG(WARNING) << "No access token was found in the metadata for this credential " 
-                 << "and therefore the lookup would fail. A lookup will not be attempted.";
     return initial_metadata;
   }
 

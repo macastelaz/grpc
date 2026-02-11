@@ -97,7 +97,7 @@ class RegionalAccessBoundaryFetcherTest : public ::testing::Test {
 
 TEST_F(RegionalAccessBoundaryFetcherTest, CacheMissTriggersFetch) {
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
   
   
@@ -108,7 +108,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, CacheHitDoesNotTriggerFetch) {
       "us-west1", {"us-west1"}, grpc_core::Timestamp::Now() + grpc_core::Duration::Seconds(100)});
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
 
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_FALSE(fetch_in_flight());
 
   
@@ -125,7 +125,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, RegionalEndpointIgnored) {
   metadata_->Set(HttpAuthorityMetadata(),
                  Slice::FromStaticString("rep.googleapis.com"));
   
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_FALSE(fetch_in_flight());
   
 }
@@ -134,7 +134,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, NonGoogleApisEndpointIgnored) {
   metadata_->Set(HttpAuthorityMetadata(),
                  Slice::FromStaticString("example.com"));
 
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_FALSE(fetch_in_flight());
 
 }
@@ -143,7 +143,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, ExpiredCacheTriggersFetch) {
   set_cache(RegionalAccessBoundary{
       "us-west1", {"us-west1"}, grpc_core::Timestamp::Now() - grpc_core::Duration::Seconds(100)});
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
   
 }
@@ -151,7 +151,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, ExpiredCacheTriggersFetch) {
 TEST_F(RegionalAccessBoundaryFetcherTest, CooldownPreventsFetch) {
   set_cooldown_deadline(grpc_core::Timestamp::Now() + grpc_core::Duration::Seconds(100));
   
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_FALSE(fetch_in_flight());
   
 }
@@ -160,20 +160,14 @@ TEST_F(RegionalAccessBoundaryFetcherTest, CooldownExpiredAllowsFetch) {
   set_cooldown_deadline(grpc_core::Timestamp::Now() - grpc_core::Duration::Seconds(100));
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
   
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
-  
-}
-
-TEST_F(RegionalAccessBoundaryFetcherTest, MissingAuthorizationMetadata) {
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
-  EXPECT_FALSE(fetch_in_flight());
   
 }
 
 TEST_F(RegionalAccessBoundaryFetcherTest, InvalidUriParsing) {
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("invalid_uri_!@#$", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("invalid_uri_!@#$", "", std::move(metadata_));
   EXPECT_FALSE(fetch_in_flight());
 }
 
@@ -226,7 +220,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, ValidJsonResponse) {
   ExecCtx exec_ctx;
   HttpRequest::SetOverride(httpcli_get_valid_json, nullptr, nullptr);
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
   
 
@@ -242,7 +236,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, MalformedJsonResponse) {
   ExecCtx exec_ctx;
   HttpRequest::SetOverride(httpcli_get_malformed_json, nullptr, nullptr);
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
 
   ExecCtx::Get()->Flush();
@@ -256,7 +250,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, ValidJsonMissingFields) {
   ExecCtx exec_ctx;
   HttpRequest::SetOverride(httpcli_get_missing_fields_json, nullptr, nullptr);
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
 
   ExecCtx::Get()->Flush();
@@ -270,7 +264,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, ValidJsonWithNonStringLocations) {
   ExecCtx exec_ctx;
   HttpRequest::SetOverride(httpcli_get_valid_json_with_non_string_locations, nullptr, nullptr);
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
 
   ExecCtx::Get()->Flush();
@@ -311,7 +305,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, RetryableHttpErrors) {
   g_mock_get_count = 0;
   HttpRequest::SetOverride(httpcli_get_500, nullptr, nullptr);
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
 
   ExecCtx::Get()->Flush();
@@ -328,7 +322,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, NonRetryableHttpErrors) {
   g_mock_get_count = 0;
   HttpRequest::SetOverride(httpcli_get_404, nullptr, nullptr);
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
 
   ExecCtx::Get()->Flush();
@@ -344,7 +338,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, CancelPendingFetch) {
   ExecCtx exec_ctx;
   HttpRequest::SetOverride(httpcli_get_500, nullptr, nullptr);
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
 
   ExecCtx::Get()->Flush();
@@ -374,7 +368,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, CancelPendingFetchWithInFlightRequest)
   HttpRequest::SetOverride(httpcli_get_stalled, nullptr, nullptr);
   metadata_->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
   
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_));
   EXPECT_TRUE(fetch_in_flight());
 
   // Cancel immediately while the HTTP request is still in flight (but stalled).
@@ -401,7 +395,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, CooldownResetsOnSuccess) {
   auto metadata_1 = arena_->MakePooled<ClientMetadata>();
   metadata_1->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
   metadata_1->Set(HttpAuthorityMetadata(), Slice::FromStaticString("googleapis.com"));
-  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_1));
+  auto result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_1));
   ExecCtx::Get()->Flush();
   
   EXPECT_FALSE(fetch_in_flight());
@@ -415,7 +409,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, CooldownResetsOnSuccess) {
   auto metadata_success = arena_->MakePooled<ClientMetadata>();
   metadata_success->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
   metadata_success->Set(HttpAuthorityMetadata(), Slice::FromStaticString("googleapis.com"));
-  result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_success));
+  result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_success));
   ExecCtx::Get()->Flush();
 
   // The fetch should succeed and cache the values, resetting cooldown to 1.
@@ -434,7 +428,7 @@ TEST_F(RegionalAccessBoundaryFetcherTest, CooldownResetsOnSuccess) {
   auto metadata_fail = arena_->MakePooled<ClientMetadata>();
   metadata_fail->Append("authorization", Slice::FromStaticString("Bearer token"), [](absl::string_view, const Slice&) { abort(); });
   metadata_fail->Set(HttpAuthorityMetadata(), Slice::FromStaticString("googleapis.com"));
-  result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", std::move(metadata_fail));
+  result = creds_->regional_access_boundary_fetcher_->Fetch("https://googleapis.com", "", std::move(metadata_fail));
   ExecCtx::Get()->Flush();
   
   EXPECT_FALSE(fetch_in_flight());
