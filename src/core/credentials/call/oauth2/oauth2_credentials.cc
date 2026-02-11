@@ -38,11 +38,11 @@
 #include "src/core/call/metadata_batch.h"
 #include "src/core/credentials/call/json_util.h"
 #include "src/core/credentials/call/regional_access_boundary_fetcher.h"
-#include "src/core/lib/promise/activity.h"
 #include "src/core/credentials/transport/transport_credentials.h"
 #include "src/core/lib/debug/trace.h"
 #include "src/core/lib/iomgr/error.h"
 #include "src/core/lib/iomgr/pollset_set.h"
+#include "src/core/lib/promise/activity.h"
 #include "src/core/lib/promise/context.h"
 #include "src/core/lib/promise/map.h"
 #include "src/core/lib/promise/poll.h"
@@ -265,12 +265,14 @@ class grpc_compute_engine_token_fetcher_credentials
  public:
   grpc_compute_engine_token_fetcher_credentials()
       : regional_access_boundary_fetcher_(
-            grpc_core::MakeRefCounted<grpc_core::RegionalAccessBoundaryFetcher>()) {}
+            grpc_core::MakeRefCounted<
+                grpc_core::RegionalAccessBoundaryFetcher>()) {}
   explicit grpc_compute_engine_token_fetcher_credentials(
       std::vector<grpc_core::URI::QueryParam> query_params)
       : query_params_(std::move(query_params)),
         regional_access_boundary_fetcher_(
-            grpc_core::MakeRefCounted<grpc_core::RegionalAccessBoundaryFetcher>()) {}
+            grpc_core::MakeRefCounted<
+                grpc_core::RegionalAccessBoundaryFetcher>()) {}
 
   ~grpc_compute_engine_token_fetcher_credentials() override {
     if (regional_access_boundary_fetcher_ != nullptr) {
@@ -279,22 +281,23 @@ class grpc_compute_engine_token_fetcher_credentials
   }
 
   grpc_core::ArenaPromise<absl::StatusOr<grpc_core::ClientMetadataHandle>>
-  GetRequestMetadata(grpc_core::ClientMetadataHandle initial_metadata,
-                     const grpc_call_credentials::GetRequestMetadataArgs* args) override {
-    return grpc_core::TrySeq(
-        FetchEmail(), [this, initial_metadata = std::move(initial_metadata),
-                       args](std::string) mutable {
-          return grpc_core::Map(
-              grpc_core::Oauth2TokenFetcherCredentials::GetRequestMetadata(
-                  std::move(initial_metadata), args),
-              [this](absl::StatusOr<grpc_core::ClientMetadataHandle> new_metadata)
-                  -> absl::StatusOr<grpc_core::ClientMetadataHandle> {
-                if (!new_metadata.ok()) return new_metadata.status();
-                return regional_access_boundary_fetcher_->Fetch(
-                    build_regional_access_boundary_url(),
-                    std::move(*new_metadata));
-              });
-        });
+  GetRequestMetadata(
+      grpc_core::ClientMetadataHandle initial_metadata,
+      const grpc_call_credentials::GetRequestMetadataArgs* args) override {
+    return grpc_core::TrySeq(FetchEmail(), [this,
+                                            initial_metadata =
+                                                std::move(initial_metadata),
+                                            args](std::string) mutable {
+      return grpc_core::Map(
+          grpc_core::Oauth2TokenFetcherCredentials::GetRequestMetadata(
+              std::move(initial_metadata), args),
+          [this](absl::StatusOr<grpc_core::ClientMetadataHandle> new_metadata)
+              -> absl::StatusOr<grpc_core::ClientMetadataHandle> {
+            if (!new_metadata.ok()) return new_metadata.status();
+            return regional_access_boundary_fetcher_->Fetch(
+                build_regional_access_boundary_url(), std::move(*new_metadata));
+          });
+    });
   }
 
   std::string debug_string() override {
@@ -304,7 +307,8 @@ class grpc_compute_engine_token_fetcher_credentials
   }
 
  private:
-  grpc_core::RefCountedPtr<grpc_core::RegionalAccessBoundaryFetcher> regional_access_boundary_fetcher_;
+  grpc_core::RefCountedPtr<grpc_core::RegionalAccessBoundaryFetcher>
+      regional_access_boundary_fetcher_;
   std::string build_regional_access_boundary_url() {
     grpc_core::MutexLock lock(&email_mu_);
     if (service_account_email_.empty()) {
@@ -315,7 +319,7 @@ class grpc_compute_engine_token_fetcher_credentials
         "%s/allowedLocations",
         service_account_email_);
   }
-  
+
   grpc_core::OrphanablePtr<grpc_core::HttpRequest> StartHttpRequest(
       grpc_polling_entity* pollent, grpc_core::Timestamp deadline,
       grpc_http_response* response, grpc_closure* on_complete) override {
@@ -416,7 +420,7 @@ class grpc_compute_engine_token_fetcher_credentials
           self->email_response_.body, self->email_response_.body_length);
     } else {
       LOG(ERROR) << "Failed to fetch service account email: "
-                 << grpc_core::StatusToString(error) 
+                 << grpc_core::StatusToString(error)
                  << " status_code: " << self->email_response_.status;
     }
     self->email_http_request_.reset();
