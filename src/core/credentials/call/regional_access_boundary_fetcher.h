@@ -64,6 +64,7 @@ class RegionalAccessBoundaryFetcher : public RefCounted<RegionalAccessBoundaryFe
    */
   ClientMetadataHandle Fetch(
       std::string lookup_url,
+      std::string access_token,
       ClientMetadataHandle initial_metadata);
 
   /* 
