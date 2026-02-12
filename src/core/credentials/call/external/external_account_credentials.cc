@@ -35,6 +35,7 @@
 #include "src/core/credentials/call/json_util.h"
 #include "src/core/credentials/call/regional_access_boundary_fetcher.h"
 #include "src/core/credentials/transport/transport_credentials.h"
+#include "src/core/lib/promise/map.h"
 #include "src/core/lib/transport/status_conversion.h"
 #include "src/core/util/grpc_check.h"
 #include "src/core/util/http_client/httpcli_ssl_credentials.h"
@@ -46,7 +47,6 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "src/core/lib/promise/map.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -70,29 +70,32 @@
 
 namespace grpc_core {
 
-grpc_core::ArenaPromise<absl::StatusOr<grpc_core::ClientMetadataHandle>>
+ArenaPromise<absl::StatusOr<ClientMetadataHandle>>
 ExternalAccountCredentials::GetRequestMetadata(
-    grpc_core::ClientMetadataHandle initial_metadata,
+    ClientMetadataHandle initial_metadata,
     const grpc_call_credentials::GetRequestMetadataArgs* args) {
   return Map(TokenFetcherCredentials::GetRequestMetadata(
                  std::move(initial_metadata), args),
              [this](absl::StatusOr<ClientMetadataHandle> updated_metadata)
                  -> absl::StatusOr<ClientMetadataHandle> {
                if (!updated_metadata.ok()) return updated_metadata;
-               
-               std::string access_token;
-               auto auth_val = (*updated_metadata)->GetStringValue(
-                   GRPC_AUTHORIZATION_METADATA_KEY, &access_token);
 
-              if (!auth_val.has_value()) {
-                LOG(WARNING) << "No access token was found in the metadata for this credential " 
-                             << "and therefore the lookup would fail. A lookup will not be attempted.";
-                return updated_metadata;
-              }
+               std::string access_token;
+               auto auth_val =
+                   (*updated_metadata)
+                       ->GetStringValue(GRPC_AUTHORIZATION_METADATA_KEY,
+                                        &access_token);
+
+               if (!auth_val.has_value()) {
+                 LOG(WARNING) << "No access token was found in the metadata "
+                                 "for this credential "
+                              << "and therefore the lookup would fail. A "
+                                 "lookup will not be attempted.";
+                 return updated_metadata;
+               }
 
                return regional_access_boundary_fetcher_->Fetch(
-                   build_regional_access_boundary_url(),
-                   access_token,
+                   build_regional_access_boundary_url(), access_token,
                    std::move(*updated_metadata));
              });
 }
@@ -493,9 +496,7 @@ bool MatchWorkloadIdentityPoolAudience(absl::string_view audience,
   auto provider_pos = audience.find("/providers/");
   if (provider_pos == absl::string_view::npos) return false;
   *pool_id = std::string(audience.substr(0, provider_pos));
-  if (pool_id->empty()) return false;
-
-  return true;
+  return !pool_id->empty();
 }
 
 // Expression to match:
@@ -659,7 +660,8 @@ ExternalAccountCredentials::ExternalAccountCredentials(
     std::shared_ptr<grpc_event_engine::experimental::EventEngine> event_engine)
     : TokenFetcherCredentials(std::move(event_engine)),
       options_(std::move(options)),
-      regional_access_boundary_fetcher_(grpc_core::MakeRefCounted<grpc_core::RegionalAccessBoundaryFetcher>()) {
+      regional_access_boundary_fetcher_(
+          MakeRefCounted<RegionalAccessBoundaryFetcher>()) {
   if (scopes.empty()) {
     scopes.push_back(GOOGLE_CLOUD_PLATFORM_DEFAULT_SCOPE);
   }
