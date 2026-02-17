@@ -17,89 +17,98 @@
 #ifndef GRPC_SRC_CORE_CREDENTIALS_CALL_REGIONAL_ACCESS_BOUNDARY_FETCHER_H
 #define GRPC_SRC_CORE_CREDENTIALS_CALL_REGIONAL_ACCESS_BOUNDARY_FETCHER_H
 
+#include <grpc/event_engine/event_engine.h>
 #include <grpc/support/port_platform.h>
 #include <grpc/support/sync.h>
 #include <grpc/support/time.h>
 
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
 
-#include <grpc/event_engine/event_engine.h>
-#include "absl/status/statusor.h"
 #include "src/core/call/metadata.h"
+#include "src/core/lib/iomgr/error.h"
+#include "src/core/util/backoff.h"
+#include "src/core/util/http_client/httpcli.h"
 #include "src/core/util/orphanable.h"
 #include "src/core/util/ref_counted_ptr.h"
-#include "src/core/util/backoff.h"
-#include "src/core/lib/iomgr/error.h"
-#include "src/core/util/http_client/httpcli.h"
+#include "absl/status/statusor.h"
 
 namespace grpc_core {
 
 constexpr Duration kRegionalAccessBoundaryCacheDuration = Duration::Hours(6);
-constexpr Duration kRegioanlAccessBoundarySoftCacheGraceDuration = Duration::Hours(1);
+constexpr Duration kRegioanlAccessBoundarySoftCacheGraceDuration =
+    Duration::Hours(1);
 
 struct RegionalAccessBoundary {
   std::string encoded_locations;
   std::vector<std::string> locations;
-  grpc_core::Timestamp expiration = grpc_core::Timestamp::Now() + 
-    kRegionalAccessBoundaryCacheDuration;
+  Timestamp expiration =
+      Timestamp::Now() + kRegionalAccessBoundaryCacheDuration;
 
-  bool IsValid() const {
-    return expiration > grpc_core::Timestamp::Now();
-  }
+  bool IsValid() const { return expiration > Timestamp::Now(); }
 
   bool IsSoftExpired() const {
-    return (expiration - kRegioanlAccessBoundarySoftCacheGraceDuration) < grpc_core::Timestamp::Now();
+    return (expiration - kRegioanlAccessBoundarySoftCacheGraceDuration) <
+           Timestamp::Now();
   }
 };
 
-class RegionalAccessBoundaryFetcher final : public InternallyRefCounted<RegionalAccessBoundaryFetcher> {
+class RegionalAccessBoundaryFetcher final
+    : public InternallyRefCounted<RegionalAccessBoundaryFetcher> {
  public:
   friend class RegionalAccessBoundaryFetcherTest;
 
-  explicit RegionalAccessBoundaryFetcher(absl::string_view lookup_url,
+  explicit RegionalAccessBoundaryFetcher(
+      absl::string_view lookup_url,
       std::shared_ptr<grpc_event_engine::experimental::EventEngine>
-          event_engine = nullptr); 
+          event_engine = nullptr);
 
-   // Attaches regional access boundary header (x-allowed-locations) to the initial metadata 
-   // if available, otherwise initiates non-blocking, asynchronous fetch of regional access
-   // boundary if not already cached or in flight.
-  void Fetch(
-      absl::string_view access_token,
-      ClientMetadata& initial_metadata);
+  // Attaches regional access boundary header (x-allowed-locations) to the
+  // initial metadata if available, otherwise initiates non-blocking,
+  // asynchronous fetch of regional access boundary if not already cached or in
+  // flight.
+  void Fetch(absl::string_view access_token, ClientMetadata& initial_metadata);
 
-  // Cancels any pending fetch of regional access boundary which must be called during
-  // destruction of any CallCredential which supports regional access boundary to
-  // avoid memory leaks from pending http requests.
+  // Cancels any pending fetch of regional access boundary which must be called
+  // during destruction of any CallCredential which supports regional access
+  // boundary to avoid memory leaks from pending http requests.
   void Orphan() override;
 
  private:
-
   class RegionalAccessBoundaryRequest;
 
-  void StartRegionalAccessBoundaryFetch(grpc_core::RefCountedPtr<RegionalAccessBoundaryRequest> req);
-  
-  void OnRegionalAccessBoundaryResponse(grpc_core::RefCountedPtr<RegionalAccessBoundaryRequest> req, grpc_error_handle error);
-  static void OnRegionalAccessBoundaryResponseWrapper(void* arg, grpc_error_handle error);
-  void RetryFetchRegionalAccessBoundary(RegionalAccessBoundaryRequest* req, grpc_error_handle error);
+  void StartRegionalAccessBoundaryFetch(
+      RefCountedPtr<RegionalAccessBoundaryRequest> req);
 
-  std::shared_ptr<grpc_event_engine::experimental::EventEngine> event_engine_ = 
-    grpc_event_engine::experimental::GetDefaultEventEngine();
+  void OnRegionalAccessBoundaryResponse(
+      RefCountedPtr<RegionalAccessBoundaryRequest> req,
+      grpc_error_handle error);
+  static void OnRegionalAccessBoundaryResponseWrapper(void* arg,
+                                                      grpc_error_handle error);
+  void RetryFetchRegionalAccessBoundary(RegionalAccessBoundaryRequest* req,
+                                        grpc_error_handle error);
+
+  std::shared_ptr<grpc_event_engine::experimental::EventEngine> event_engine_ =
+      grpc_event_engine::experimental::GetDefaultEventEngine();
   const std::string lookup_url_;
-  grpc_core::Mutex cache_mu_;
-  std::optional<grpc_event_engine::experimental::EventEngine::TaskHandle> retry_timer_handle_ ABSL_GUARDED_BY(&cache_mu_);
-  std::optional<RegionalAccessBoundary> cache_ ABSL_GUARDED_BY(&cache_mu_) ;
+  Mutex cache_mu_;
+  std::optional<grpc_event_engine::experimental::EventEngine::TaskHandle>
+      retry_timer_handle_ ABSL_GUARDED_BY(&cache_mu_);
+  std::optional<RegionalAccessBoundary> cache_ ABSL_GUARDED_BY(&cache_mu_);
   int cooldown_multiplier_ ABSL_GUARDED_BY(&cache_mu_) = 1;
-  grpc_core::Timestamp cooldown_deadline_ ABSL_GUARDED_BY(&cache_mu_) = grpc_core::Timestamp::ProcessEpoch();
-  grpc_core::BackOff backoff_ ABSL_GUARDED_BY(&cache_mu_);
-  grpc_core::RefCountedPtr<RegionalAccessBoundaryRequest> pending_request_ ABSL_GUARDED_BY(&cache_mu_);
+  Timestamp cooldown_deadline_ ABSL_GUARDED_BY(&cache_mu_) =
+      Timestamp::ProcessEpoch();
+  BackOff backoff_ ABSL_GUARDED_BY(&cache_mu_);
+  RefCountedPtr<RegionalAccessBoundaryRequest> pending_request_
+      ABSL_GUARDED_BY(&cache_mu_);
 };
 
 class RegionalAccessBoundaryFetcher::RegionalAccessBoundaryRequest final
-: public grpc_core::RefCounted<RegionalAccessBoundaryRequest> {
+    : public RefCounted<RegionalAccessBoundaryRequest> {
  public:
-  explicit RegionalAccessBoundaryRequest(grpc_core::URI uri, absl::string_view access_token);
+  explicit RegionalAccessBoundaryRequest(URI uri,
+                                         absl::string_view access_token);
 
   ~RegionalAccessBoundaryRequest() override {
     grpc_http_response_destroy(&response_);
@@ -112,14 +121,14 @@ class RegionalAccessBoundaryFetcher::RegionalAccessBoundaryRequest final
 
  private:
   friend class RegionalAccessBoundaryFetcher;
-  
+
   grpc_http_response response_;
-  grpc_core::OrphanablePtr<grpc_core::HttpRequest> http_request_;
+  OrphanablePtr<HttpRequest> http_request_;
   std::string access_token_;
-  grpc_core::URI uri_;
+  URI uri_;
   grpc_polling_entity pollent_;
   int num_retries_ = 0;
-  grpc_core::RefCountedPtr<RegionalAccessBoundaryFetcher> fetcher_;
+  RefCountedPtr<RegionalAccessBoundaryFetcher> fetcher_;
   grpc_closure closure_;
 };
 
