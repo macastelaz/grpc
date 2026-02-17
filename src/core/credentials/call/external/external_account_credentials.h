@@ -75,9 +75,9 @@ class ExternalAccountCredentials : public TokenFetcherCredentials {
       std::shared_ptr<grpc_event_engine::experimental::EventEngine>
           event_engine = nullptr);
 
-  grpc_core::ArenaPromise<absl::StatusOr<grpc_core::ClientMetadataHandle>>
-  GetRequestMetadata(grpc_core::ClientMetadataHandle initial_metadata,
-                     const GetRequestMetadataArgs* args) override;
+  ArenaPromise<absl::StatusOr<ClientMetadataHandle>> GetRequestMetadata(
+      ClientMetadataHandle initial_metadata,
+      const GetRequestMetadataArgs* args) override;
 
   ExternalAccountCredentials(
       Options options, std::vector<std::string> scopes,
@@ -208,7 +208,8 @@ class ExternalAccountCredentials : public TokenFetcherCredentials {
   Options options_;
   std::vector<std::string> scopes_;
 
-  grpc_core::OrphanablePtr<RegionalAccessBoundaryFetcher> regional_access_boundary_fetcher_;
+  OrphanablePtr<RegionalAccessBoundaryFetcher>
+      regional_access_boundary_fetcher_;
   std::string build_regional_access_boundary_url() {
     if (!options_.workforce_pool_id.empty()) {
       return absl::StrFormat(
