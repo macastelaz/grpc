@@ -38,11 +38,11 @@
 #include "src/core/call/metadata_batch.h"
 #include "src/core/credentials/call/json_util.h"
 #include "src/core/credentials/call/regional_access_boundary_fetcher.h"
-#include "src/core/lib/promise/activity.h"
 #include "src/core/credentials/transport/transport_credentials.h"
 #include "src/core/lib/debug/trace.h"
 #include "src/core/lib/iomgr/error.h"
 #include "src/core/lib/iomgr/pollset_set.h"
+#include "src/core/lib/promise/activity.h"
 #include "src/core/lib/promise/context.h"
 #include "src/core/lib/promise/map.h"
 #include "src/core/lib/promise/poll.h"
@@ -279,42 +279,50 @@ class grpc_compute_engine_token_fetcher_credentials
   }
 
   grpc_core::ArenaPromise<absl::StatusOr<grpc_core::ClientMetadataHandle>>
-  GetRequestMetadata(grpc_core::ClientMetadataHandle initial_metadata,
-                     const grpc_call_credentials::GetRequestMetadataArgs* args) override {
-    return grpc_core::TrySeq(
-        FetchEmail(), [this, initial_metadata = std::move(initial_metadata),
-                       args](std::string) mutable {
-          return grpc_core::Map(
-              grpc_core::Oauth2TokenFetcherCredentials::GetRequestMetadata(
-                  std::move(initial_metadata), args),
-              [this](absl::StatusOr<grpc_core::ClientMetadataHandle> new_metadata)
-                  -> absl::StatusOr<grpc_core::ClientMetadataHandle> {
-                if (!new_metadata.ok()) return new_metadata.status();
-                std::string access_token;
-                auto auth_val = (*new_metadata)->GetStringValue(
-                    GRPC_AUTHORIZATION_METADATA_KEY, &access_token);
-                if (!auth_val.has_value()) {
-                  LOG(WARNING) << "No access token was found in the metadata for this credential " 
-                              << "and therefore the lookup would fail. A lookup will not be attempted.";
-                  return new_metadata;
-                }
-                {
-                  grpc_core::MutexLock lock(&email_mu_);
-                  if (regional_access_boundary_fetcher_ == nullptr && !service_account_email_.empty()) {
-                    regional_access_boundary_fetcher_ = grpc_core::MakeOrphanable<grpc_core::RegionalAccessBoundaryFetcher>(
-                        absl::StrFormat("https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/"
-                                        "%s/allowedLocations",
-                                        service_account_email_));
-                  }
-                  if (regional_access_boundary_fetcher_ != nullptr) {
-                    regional_access_boundary_fetcher_->Fetch(
-                        auth_val.value(),
-                        *(*new_metadata));
-                  }
-                }
-                return new_metadata;
-              });
-        });
+  GetRequestMetadata(
+      grpc_core::ClientMetadataHandle initial_metadata,
+      const grpc_call_credentials::GetRequestMetadataArgs* args) override {
+    return grpc_core::TrySeq(FetchEmail(), [this,
+                                            initial_metadata =
+                                                std::move(initial_metadata),
+                                            args](std::string) mutable {
+      return grpc_core::Map(
+          grpc_core::Oauth2TokenFetcherCredentials::GetRequestMetadata(
+              std::move(initial_metadata), args),
+          [this](absl::StatusOr<grpc_core::ClientMetadataHandle> new_metadata)
+              -> absl::StatusOr<grpc_core::ClientMetadataHandle> {
+            if (!new_metadata.ok()) return new_metadata.status();
+            std::string access_token;
+            auto auth_val =
+                (*new_metadata)
+                    ->GetStringValue(GRPC_AUTHORIZATION_METADATA_KEY,
+                                     &access_token);
+            if (!auth_val.has_value()) {
+              LOG(WARNING) << "No access token was found in the metadata for "
+                              "this credential "
+                           << "and therefore the lookup would fail. A lookup "
+                              "will not be attempted.";
+              return new_metadata;
+            }
+            {
+              grpc_core::MutexLock lock(&email_mu_);
+              if (regional_access_boundary_fetcher_ == nullptr &&
+                  !service_account_email_.empty()) {
+                regional_access_boundary_fetcher_ = grpc_core::MakeOrphanable<
+                    grpc_core::RegionalAccessBoundaryFetcher>(
+                    absl::StrFormat("https://iamcredentials.googleapis.com/v1/"
+                                    "projects/-/serviceAccounts/"
+                                    "%s/allowedLocations",
+                                    service_account_email_));
+              }
+              if (regional_access_boundary_fetcher_ != nullptr) {
+                regional_access_boundary_fetcher_->Fetch(auth_val.value(),
+                                                         *(*new_metadata));
+              }
+            }
+            return new_metadata;
+          });
+    });
   }
 
   std::string debug_string() override {
@@ -324,8 +332,9 @@ class grpc_compute_engine_token_fetcher_credentials
   }
 
  private:
-  grpc_core::OrphanablePtr<grpc_core::RegionalAccessBoundaryFetcher> regional_access_boundary_fetcher_ ABSL_GUARDED_BY(email_mu_);
-  
+  grpc_core::OrphanablePtr<grpc_core::RegionalAccessBoundaryFetcher>
+      regional_access_boundary_fetcher_ ABSL_GUARDED_BY(email_mu_);
+
   grpc_core::OrphanablePtr<grpc_core::HttpRequest> StartHttpRequest(
       grpc_polling_entity* pollent, grpc_core::Timestamp deadline,
       grpc_http_response* response, grpc_closure* on_complete) override {
@@ -428,7 +437,7 @@ class grpc_compute_engine_token_fetcher_credentials
             self->email_response_.body, self->email_response_.body_length);
       } else {
         LOG(ERROR) << "Failed to fetch service account email: "
-                   << grpc_core::StatusToString(error) 
+                   << grpc_core::StatusToString(error)
                    << " status_code: " << self->email_response_.status;
       }
       self->email_http_request_.reset();
