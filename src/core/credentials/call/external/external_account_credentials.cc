@@ -35,6 +35,7 @@
 #include "src/core/credentials/call/json_util.h"
 #include "src/core/credentials/call/regional_access_boundary_fetcher.h"
 #include "src/core/credentials/transport/transport_credentials.h"
+#include "src/core/lib/promise/map.h"
 #include "src/core/lib/transport/status_conversion.h"
 #include "src/core/util/grpc_check.h"
 #include "src/core/util/http_client/httpcli_ssl_credentials.h"
@@ -46,7 +47,6 @@
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "src/core/lib/promise/map.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -452,7 +452,8 @@ struct WorkloadIdentityPoolFields {
 
 // Expression to match:
 // //iam.googleapis.com/projects/<project>/locations/global/workloadIdentityPools/<pool-id>/providers/.+
-std::optional<WorkloadIdentityPoolFields> MatchWorkloadIdentityPoolAudience(absl::string_view audience) {
+std::optional<WorkloadIdentityPoolFields> MatchWorkloadIdentityPoolAudience(
+    absl::string_view audience) {
   // Match "//iam.googleapis.com/projects/"
   if (!absl::ConsumePrefix(&audience, "//iam.googleapis.com/projects/")) {
     return std::nullopt;
@@ -567,8 +568,7 @@ ExternalAccountCredentials::Create(
   }
   it = json.object().find("workforce_pool_user_project");
   if (it != json.object().end()) {
-    if (auto workforce_pool_id =
-            MatchWorkforcePoolAudience(options.audience);
+    if (auto workforce_pool_id = MatchWorkforcePoolAudience(options.audience);
         !workforce_pool_id.empty()) {
       options.workforce_pool_id = std::string(workforce_pool_id);
       options.workforce_pool_user_project = it->second.string();
