@@ -56,10 +56,9 @@ void TokenFetcherCredentials::Token::AddTokenToClientInitialMetadata(
 }
 
 TokenFetcherCredentials::TokenWithRegionalAccessBoundary::
-    TokenWithRegionalAccessBoundary(
-        Slice token, Timestamp expiration,
-        RefCountedPtr<RegionalAccessBoundaryFetcher>
-            regional_access_boundary_fetcher)
+    TokenWithRegionalAccessBoundary(Slice token, Timestamp expiration,
+                                    RefCountedPtr<RegionalAccessBoundaryFetcher>
+                                        regional_access_boundary_fetcher)
     : Token(std::move(token), expiration),
       regional_access_boundary_fetcher_(
           std::move(regional_access_boundary_fetcher)) {}
