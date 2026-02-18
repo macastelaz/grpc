@@ -32,7 +32,6 @@
 #include "src/core/credentials/call/call_credentials.h"
 #include "src/core/credentials/call/jwt/json_token.h"
 #include "src/core/credentials/call/regional_access_boundary_fetcher.h"
-#include "src/core/util/ref_counted_ptr.h"
 #include "src/core/lib/iomgr/polling_entity.h"
 #include "src/core/lib/promise/arena_promise.h"
 #include "src/core/lib/slice/slice.h"
@@ -91,7 +90,8 @@ class grpc_service_account_jwt_access_credentials
 
   grpc_auth_json_key key_;
   gpr_timespec jwt_lifetime_;
-  grpc_core::OrphanablePtr<grpc_core::RegionalAccessBoundaryFetcher> regional_access_boundary_fetcher_;
+  grpc_core::OrphanablePtr<grpc_core::RegionalAccessBoundaryFetcher>
+      regional_access_boundary_fetcher_;
 };
 
 // Private constructor for jwt credentials from an already parsed json key.
