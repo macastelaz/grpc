@@ -126,14 +126,14 @@ grpc_cc_test(
     ],
     deps = [
         "//:gpr",
+        "//:grpc_security_base",
+        "//:httpcli",
         "//src/core:arena",
         "//src/core:arena_promise",
-        "//:grpc_security_base",
         "//src/core:env",
         "//src/core:metadata_batch",
         "//src/core:regional_access_boundary_fetcher",
         "//src/core:resource_quota",
-        "//:httpcli",
         "//test/core/test_util:grpc_test_util",
     ],
 )
