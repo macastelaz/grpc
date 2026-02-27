@@ -323,7 +323,8 @@ TokenFetcherCredentials::GetRequestMetadata(
   return [handler = CancellationHandler(fetch_state_->Ref(), queued_call),
           this]() mutable -> Poll<absl::StatusOr<ClientMetadataHandle>> {
     // handler keeps queued_call and fetch_state alive.
-    // If this lambda is destroyed, handler destructor runs and cancels if pending.
+    // If this lambda is destroyed, handler destructor runs and cancels if
+    // pending.
     if (!handler.queued_call->done.load(std::memory_order_acquire)) {
       return Pending{};
     }
