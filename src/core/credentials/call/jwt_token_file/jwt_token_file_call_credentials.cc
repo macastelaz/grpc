@@ -87,7 +87,8 @@ JwtTokenFileCallCredentials::FetchToken(
     absl::AnyInvocable<
         void(absl::StatusOr<RefCountedPtr<TokenFetcherCredentials::Token>>)>
         on_done) {
-  return MakeOrphanable<FileReader>(WeakRefAsSubclass<JwtTokenFileCallCredentials>(), std::move(on_done));
+  return MakeOrphanable<FileReader>(
+      WeakRefAsSubclass<JwtTokenFileCallCredentials>(), std::move(on_done));
 }
 
 }  // namespace grpc_core
