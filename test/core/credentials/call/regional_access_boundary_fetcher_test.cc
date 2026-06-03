@@ -395,7 +395,8 @@ int httpcli_get_network_error(const grpc_http_request* /*request*/,
                               const URI& /*uri*/, Timestamp /*deadline*/,
                               grpc_closure* on_done,
                               grpc_http_response* /*response*/) {
-  ExecCtx::Run(DEBUG_LOCATION, on_done, absl::UnavailableError("Connection refused"));
+  ExecCtx::Run(DEBUG_LOCATION, on_done,
+               absl::UnavailableError("Connection refused"));
   return 1;
 }
 
@@ -426,9 +427,12 @@ TEST_F(RegionalAccessBoundaryFetcherTest, NetworkErrorLogsResponseCorrectly) {
 
   bool found_log = false;
   for (const auto& msg : log_sink.messages) {
-    if (absl::StrContains(msg, "Regional access boundary request will be retried")) {
+    if (absl::StrContains(msg,
+                          "Regional access boundary request will be retried")) {
       found_log = true;
-      EXPECT_THAT(msg, ::testing::HasSubstr("failing with error: UNAVAILABLE:Connection refused"));
+      EXPECT_THAT(msg,
+                  ::testing::HasSubstr(
+                      "failing with error: UNAVAILABLE:Connection refused"));
       EXPECT_THAT(msg, ::testing::HasSubstr("HTTP Status: 0"));
       EXPECT_THAT(msg, ::testing::Not(::testing::HasSubstr("Body:")));
     }
@@ -862,14 +866,10 @@ TEST(IsValidEmailTest, CustomEmailsValidation) {
     bool expected_valid;
   };
   std::vector<TestCase> test_cases = {
-      {"foo@bar.com", true},
-      {"foo@bar", false},
-      {"foo@bar@baz.com", false},
-      {"@bar.com", false},
-      {"foo@bar.com.", true},
-      {"foo@.bar.com", true},
-      {"foo@bar..com", true},
-      {"foo@bar.", false},
+      {"foo@bar.com", true},      {"foo@bar", false},
+      {"foo@bar@baz.com", false}, {"@bar.com", false},
+      {"foo@bar.com.", true},     {"foo@.bar.com", true},
+      {"foo@bar..com", true},     {"foo@bar.", false},
   };
   for (const auto& tc : test_cases) {
     EXPECT_EQ(EmailFetcher::IsValidEmail(tc.email), tc.expected_valid)
