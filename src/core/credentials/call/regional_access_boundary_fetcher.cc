@@ -233,7 +233,8 @@ void RegionalAccessBoundaryFetcher::Request::OnResponse(
     grpc_error_handle error) {
   bool success = false;
   std::string encoded_locations;
-  absl::string_view response_body = "";  // NOLINT(readability-redundant-string-init)
+  absl::string_view response_body =
+      "";  // NOLINT(readability-redundant-string-init)
   if (response_.body != nullptr) {
     response_body = absl::string_view(response_.body, response_.body_length);
   }
@@ -307,7 +308,8 @@ class EmailFetcher::EmailRequest final
   }
 
   void OnResponse(grpc_error_handle error) {
-    absl::string_view response_body = "";  // NOLINT(readability-redundant-string-init)
+    absl::string_view response_body =
+        "";  // NOLINT(readability-redundant-string-init)
     if (response_.body != nullptr) {
       response_body = absl::string_view(response_.body, response_.body_length);
     }
