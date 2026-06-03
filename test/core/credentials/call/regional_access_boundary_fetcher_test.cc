@@ -808,8 +808,9 @@ TEST_F(EmailFetcherTest, EmailWithWhitespaceTrimmedAndSucceeds) {
 }
 
 std::string g_custom_email;
-int httpcli_get_custom_email(const grpc_http_request* /*request*/, const URI& uri,
-                             Timestamp /*deadline*/, grpc_closure* on_done,
+int httpcli_get_custom_email(const grpc_http_request* /*request*/,
+                             const URI& uri, Timestamp /*deadline*/,
+                             grpc_closure* on_done,
                              grpc_http_response* response) {
   if (uri.path() ==
       "/computeMetadata/v1/instance/service-accounts/default/email") {
@@ -830,41 +831,40 @@ TEST_F(EmailFetcherTest, CustomEmailsValidation) {
     bool should_fetch_rab;
   };
   std::vector<TestCase> test_cases = {
-      {"foo@bar.com", true},
-      {"foo@bar", false},
-      {"foo@bar@baz.com", false},
-      {"@bar.com", false},
-      {"foo@bar.com.", true},
-      {"foo@.bar.com", true},
-      {"foo@bar..com", true},
-      {"foo@bar.", false},
+      {"foo@bar.com", true},      {"foo@bar", false},
+      {"foo@bar@baz.com", false}, {"@bar.com", false},
+      {"foo@bar.com.", true},     {"foo@.bar.com", true},
+      {"foo@bar..com", true},     {"foo@bar.", false},
   };
   for (const auto& tc : test_cases) {
     ExecCtx exec_ctx;
     g_custom_email = tc.email;
     HttpRequest::SetOverride(httpcli_get_custom_email, nullptr, nullptr);
-    
+
     auto email_fetcher = MakeRefCounted<EmailFetcher>(fuzzing_event_engine_);
     email_fetcher->StartEmailFetch();
     ExecCtx::Get()->Flush();
-    
+
     auto metadata = arena_->MakePooled<ClientMetadata>();
     metadata->Append("authorization", Slice::FromStaticString("Bearer token"),
                      [](absl::string_view, const Slice&) { abort(); });
-    metadata->Append(":authority", Slice::FromStaticString("foo.googleapis.com"),
+    metadata->Append(":authority",
+                     Slice::FromStaticString("foo.googleapis.com"),
                      [](absl::string_view, const Slice&) { abort(); });
     email_fetcher->Fetch("token", *metadata);
     ExecCtx::Get()->Flush();
-    
+
     std::string buffer;
     std::optional<absl::string_view> value =
         metadata->GetStringValue("x-allowed-locations", &buffer);
     if (tc.should_fetch_rab) {
       auto metadata2 = arena_->MakePooled<ClientMetadata>();
-      metadata2->Append("authorization", Slice::FromStaticString("Bearer token"),
-                       [](absl::string_view, const Slice&) { abort(); });
-      metadata2->Append(":authority", Slice::FromStaticString("foo.googleapis.com"),
-                       [](absl::string_view, const Slice&) { abort(); });
+      metadata2->Append("authorization",
+                        Slice::FromStaticString("Bearer token"),
+                        [](absl::string_view, const Slice&) { abort(); });
+      metadata2->Append(":authority",
+                        Slice::FromStaticString("foo.googleapis.com"),
+                        [](absl::string_view, const Slice&) { abort(); });
       email_fetcher->Fetch("token", *metadata2);
       std::string buffer2;
       std::optional<absl::string_view> value2 =
@@ -874,10 +874,12 @@ TEST_F(EmailFetcherTest, CustomEmailsValidation) {
     } else {
       EXPECT_FALSE(value.has_value()) << "Failed for email: " << tc.email;
       auto metadata2 = arena_->MakePooled<ClientMetadata>();
-      metadata2->Append("authorization", Slice::FromStaticString("Bearer token"),
-                       [](absl::string_view, const Slice&) { abort(); });
-      metadata2->Append(":authority", Slice::FromStaticString("foo.googleapis.com"),
-                       [](absl::string_view, const Slice&) { abort(); });
+      metadata2->Append("authorization",
+                        Slice::FromStaticString("Bearer token"),
+                        [](absl::string_view, const Slice&) { abort(); });
+      metadata2->Append(":authority",
+                        Slice::FromStaticString("foo.googleapis.com"),
+                        [](absl::string_view, const Slice&) { abort(); });
       email_fetcher->Fetch("token", *metadata2);
       std::string buffer2;
       std::optional<absl::string_view> value2 =
