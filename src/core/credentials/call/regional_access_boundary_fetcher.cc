@@ -56,8 +56,8 @@ RegionalAccessBoundaryFetcher::Create(
     std::optional<BackOff::Options> backoff_options) {
   auto uri = URI::Parse(lookup_url);
   if (!uri.ok()) {
-    LOG(WARNING) << "Invalid RegionalAccessBoundary lookup URI \"" << lookup_url
-                 << "\" (" << uri.status() << "); RAB data will not be fetched";
+    LOG(INFO) << "Invalid RegionalAccessBoundary lookup URI \"" << lookup_url
+              << "\" (" << uri.status() << "); RAB data will not be fetched";
     return nullptr;
   }
   return MakeRefCounted<RegionalAccessBoundaryFetcher>(
@@ -103,7 +103,7 @@ void RegionalAccessBoundaryFetcher::OnFetchFailure(
   if (response_body.data() != nullptr) {
     absl::StrAppend(&log_message, ", Body: ", response_body);
   }
-  LOG(WARNING) << log_message;
+  LOG(INFO) << log_message;
   next_fetch_time_ = Timestamp::Now() + backoff_.NextAttemptDelay();
   pending_request_.reset();
 }
@@ -150,6 +150,7 @@ void RegionalAccessBoundaryFetcher::Fetch(absl::string_view access_token,
     }
     // If we have cached non-expired Regional Access Boundary data, use it.
     if (cache_.has_value() && cache_->expiration > now) {
+      std::cout << "Using cached RAB: " << cache_->encoded_locations.as_string_view() << std::endl;
       initial_metadata.Append(
           kAllowedLocationsKey, cache_->encoded_locations.Ref(),
           [](absl::string_view, const Slice&) {
