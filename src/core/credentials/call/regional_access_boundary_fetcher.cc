@@ -150,7 +150,8 @@ void RegionalAccessBoundaryFetcher::Fetch(absl::string_view access_token,
     }
     // If we have cached non-expired Regional Access Boundary data, use it.
     if (cache_.has_value() && cache_->expiration > now) {
-      std::cout << "Using cached RAB: " << cache_->encoded_locations.as_string_view() << std::endl;
+      std::cout << "Using cached RAB: "
+                << cache_->encoded_locations.as_string_view() << std::endl;
       initial_metadata.Append(
           kAllowedLocationsKey, cache_->encoded_locations.Ref(),
           [](absl::string_view, const Slice&) {
