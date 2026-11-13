@@ -670,8 +670,7 @@ int httpcli_get_email_success(const grpc_http_request* /*request*/,
   if (uri.path() ==
       "/computeMetadata/v1/instance/service-accounts/default/email") {
     *response = http_response(200, "foo@bar.com");
-  } else if (uri.path() ==
-             "/computeMetadata/v1/universe/universe-domain") {
+  } else if (uri.path() == "/computeMetadata/v1/universe/universe-domain") {
     *response = http_response(200, "googleapis.com");
   } else {
     // RAB fetch
@@ -743,8 +742,7 @@ TEST_F(EmailFetcherTest, EmailFetchFailureSkipsRab) {
 }
 
 int httpcli_get_email_failure_counted(const grpc_http_request* /*request*/,
-                                      const URI& uri,
-                                      Timestamp /*deadline*/,
+                                      const URI& uri, Timestamp /*deadline*/,
                                       grpc_closure* on_done,
                                       grpc_http_response* response) {
   if (uri.path() ==
@@ -799,8 +797,7 @@ int httpcli_get_spiffe_id(const grpc_http_request* /*request*/, const URI& uri,
       "/computeMetadata/v1/instance/service-accounts/default/email") {
     *response = http_response(
         200, "spiffe://my-project.svc.id.goog/ns/default/sa/default");
-  } else if (uri.path() ==
-             "/computeMetadata/v1/universe/universe-domain") {
+  } else if (uri.path() == "/computeMetadata/v1/universe/universe-domain") {
     *response = http_response(200, "googleapis.com");
   }
   ExecCtx::Run(DEBUG_LOCATION, on_done, absl::OkStatus());
@@ -831,8 +828,7 @@ int httpcli_get_email_with_whitespace(const grpc_http_request* /*request*/,
   if (uri.path() ==
       "/computeMetadata/v1/instance/service-accounts/default/email") {
     *response = http_response(200, "  foo@bar.com\n");
-  } else if (uri.path() ==
-             "/computeMetadata/v1/universe/universe-domain") {
+  } else if (uri.path() == "/computeMetadata/v1/universe/universe-domain") {
     *response = http_response(200, "  googleapis.com\n");
   } else {
     // RAB fetch
