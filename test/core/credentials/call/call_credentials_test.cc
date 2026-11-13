@@ -4741,10 +4741,9 @@ TEST_F(ExternalAccountCredentialsTest, NonGduUniverseDomainInOptionsSkipsRab) {
       options, std::vector<std::string>(), event_engine_);
   auto state = RequestMetadataState::NewInstance(
       absl::OkStatus(), "authorization: Bearer token_exchange_access_token");
-  HttpRequest::SetOverride(
-      httpcli_get_should_not_be_called,
-      external_account_creds_httpcli_post_success,
-      httpcli_put_should_not_be_called);
+  HttpRequest::SetOverride(httpcli_get_should_not_be_called,
+                           external_account_creds_httpcli_post_success,
+                           httpcli_put_should_not_be_called);
   state->RunRequestMetadataTest(creds.get(), kTestUrlScheme,
                                 kGoogleTestAuthority, kTestPath);
   event_engine_->TickUntilIdle();
