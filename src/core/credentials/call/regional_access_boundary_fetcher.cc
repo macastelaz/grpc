@@ -268,12 +268,11 @@ class EmailFetcher::MetadataRequest final
     grpc_http_request request = {};
     request.hdr_count = 1;
     request.hdrs = &header;
-    const char* path = type_ == Type::kEmail
-                           ? kComputeEngineDefaultSaEmailPath
-                           : kComputeEngineUniverseDomainPath;
-    auto uri = URI::Create(
-        "http", /*user_info=*/"", GRPC_COMPUTE_ENGINE_METADATA_HOST, path,
-        /*query_parameter_pairs=*/{}, /*fragment=*/"");
+    const char* path = type_ == Type::kEmail ? kComputeEngineDefaultSaEmailPath
+                                             : kComputeEngineUniverseDomainPath;
+    auto uri = URI::Create("http", /*user_info=*/"",
+                           GRPC_COMPUTE_ENGINE_METADATA_HOST, path,
+                           /*query_parameter_pairs=*/{}, /*fragment=*/"");
     GRPC_CHECK(uri.ok());
     GRPC_CLOSURE_INIT(&closure_, OnResponseWrapper, this,
                       grpc_schedule_on_exec_ctx);
@@ -318,9 +317,8 @@ class EmailFetcher::MetadataRequest final
       } else if (response_.status == 404) {
         fetcher_->OnUniverseDomainFetchComplete("");
       } else if (response_.status != 200) {
-        fetcher_->OnUniverseDomainFetchError(GRPC_ERROR_CREATE(
-            absl::StrCat("Failed to fetch universe domain: HTTP ",
-                         response_.status)));
+        fetcher_->OnUniverseDomainFetchError(GRPC_ERROR_CREATE(absl::StrCat(
+            "Failed to fetch universe domain: HTTP ", response_.status)));
       } else {
         fetcher_->OnUniverseDomainFetchComplete(response_body);
       }
